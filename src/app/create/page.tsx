@@ -293,7 +293,7 @@ export default function CreatePage() {
     URL.revokeObjectURL(url)
   }
 
-  const publishGame = () => {
+  const publishGame = async () => {
     if (!game.name.trim()) {
       alert("Please enter a game name")
       return
@@ -308,18 +308,46 @@ export default function CreatePage() {
     }
 
     // Convert game data for publishing - replace blank spaces with '0'
-    const gameForPublishing = {
-      ...game,
-      levels: game.levels.map(level => ({
-        ...level,
-        grid: level.grid.map(row => 
-          row.map(cell => cell === ' ' ? '0' : cell)
-        )
-      }))
+    const levelsData = game.levels.map(level => 
+      level.grid.map(row => 
+        '"' + row.map(cell => cell === ' ' ? '0' : cell).join('') + '"'
+      )
+    )
+
+    // Format as a single string like the example
+    const levelsString = '[' + levelsData.map(level => 
+      '[' + level.join(',') + ']'
+    ).join(',') + ']'
+
+    const gamePayload = {
+      gameName: game.name,
+      levels: levelsString,
+      costOfPlay: game.entryFee
     }
 
-    console.log("game", gameForPublishing)
-    alert(`Game "${game.name}" ready to publish!\n\nLevels: ${game.levels.length}\nEntry Fee: ${game.entryFee} MONAD\nDifficulty: ${game.difficulty}`)
+    console.log("game payload:", gamePayload)
+
+    try {
+      // Send to your endpoint
+      const response = await fetch('/api/publish-game', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(gamePayload)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert(`Game "${game.name}" published successfully!`)
+        console.log("Publish result:", result)
+      } else {
+        throw new Error(`Failed to publish: ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error("Publish error:", error)
+      alert(`Failed to publish game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   // Update preview in real-time when grid changes
