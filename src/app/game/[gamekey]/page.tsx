@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useParams } from 'next/navigation'
 
 // TypeScript interfaces for level data structure
 interface LevelData {
-  GameKey: {
+  [gameKey: string]: {
     Levels: {
       LevelsCount: number
       Levels: string[][]
@@ -15,9 +16,11 @@ interface LevelData {
 export default function GamePage() {
   const gameContainerRef = useRef<HTMLDivElement>(null)
   const gameInitialized = useRef(false)
+  const params = useParams()
+  const gameKey = params.gamekey as string
 
   useEffect(() => {
-    if (gameInitialized.current || !gameContainerRef.current) return
+    if (gameInitialized.current || !gameContainerRef.current || !gameKey) return
     gameInitialized.current = true
 
     // Dynamically import kaboom to avoid SSR issues
@@ -113,14 +116,20 @@ export default function GamePage() {
       let LEVELS: string[][] = []
       let LEVELS_COUNT = 0
 
-      // Load levels data
+      // Load levels data for specific game key
       const loadLevelsData = async (): Promise<void> => {
         try {
           const response = await fetch('/data/levels.json')
           const data: LevelData = await response.json()
-          LEVELS = data.GameKey.Levels.Levels
-          LEVELS_COUNT = data.GameKey.Levels.LevelsCount
-          console.log(`Loaded ${LEVELS_COUNT} levels from JSON`)
+          
+          // Check if the game key exists in the JSON
+          if (!data[gameKey]) {
+            throw new Error(`Game key "${gameKey}" not found in levels data`)
+          }
+          
+          LEVELS = data[gameKey].Levels.Levels
+          LEVELS_COUNT = data[gameKey].Levels.LevelsCount
+          console.log(`Loaded ${LEVELS_COUNT} levels for game key: ${gameKey}`)
         } catch (error) {
           console.error('Failed to load levels:', error)
           // Fallback to default levels if JSON loading fails
@@ -322,6 +331,12 @@ export default function GamePage() {
           k.fixed(),
         ])
 
+        k.add([
+          k.text(`Game: ${gameKey}`),
+          k.pos(24, 96),
+          k.fixed(),
+        ])
+
         function jump() {
           // these 2 functions are provided by body() component
           if (player.isGrounded()) {
@@ -378,8 +393,8 @@ export default function GamePage() {
       })
 
       k.scene("loading", () => {
-      k.add([
-          k.text("Loading Levels..."),
+        k.add([
+          k.text(`Loading Game: ${gameKey}...`),
           k.pos(k.center()),
           k.anchor("center"),
         ])
@@ -395,7 +410,7 @@ export default function GamePage() {
       })
 
       k.scene("win", () => {
-        k.add([
+      k.add([
           k.text("You Win"),
           k.pos(k.center()),
           k.anchor("center"),
@@ -416,13 +431,28 @@ export default function GamePage() {
       // Cleanup if needed
       gameInitialized.current = false
     }
-  }, [])
+  }, [gameKey])
+
+  if (!gameKey) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full text-center">
+          <h1 className="text-3xl font-bold mb-6 text-red-600">
+            Invalid Game Key
+          </h1>
+          <p className="text-gray-600">
+            Please provide a valid game key in the URL (e.g., /game/0x001)
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full">
         <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-          Kaboom Platformer Game
+          Kaboom Platformer Game - {gameKey}
         </h1>
         
         <div className="text-center mb-4 text-gray-600">
@@ -447,6 +477,7 @@ export default function GamePage() {
       
         <div className="mt-4 text-center text-sm text-gray-500">
           <p>A classic platformer game built with Kaboom.js</p>
+          <p>Game Key: {gameKey}</p>
         </div>
       </div>
     </div>
