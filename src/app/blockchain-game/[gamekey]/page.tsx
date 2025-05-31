@@ -7,20 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Maximize, Volume2, VolumeX, RotateCcw, Trophy, Coins, Target, Gamepad2 } from 'lucide-react'
-import { getCompleteGameInfo, SmartContractGame, getGameByIdOrAddress } from '@/lib/smartContract'
+import { getGameByIdOrAddress, SmartContractGame } from '@/lib/smartContract'
 import { checkWalletConnection } from '@/lib/wallet'
 
-// TypeScript interfaces for level data structure
-interface LevelData {
-  [gameKey: string]: {
-    Levels: {
-      LevelsCount: number
-      Levels: string[][]
-    }
-  }
-}
-
-export default function GamePage() {
+export default function BlockchainGamePage() {
   const gameContainerRef = useRef<HTMLDivElement>(null)
   const gameInitialized = useRef(false)
   const params = useParams()
@@ -28,90 +18,13 @@ export default function GamePage() {
   const gameKey = params.gamekey as string
   
   const [isLoading, setIsLoading] = useState(true)
-  const [gameInfo, setGameInfo] = useState<{
-    title: string
-    description: string
-    difficulty: string
-    levels: number
-    theme: string
-    color: string
-  } | null>(null)
   const [smartContractGame, setSmartContractGame] = useState<SmartContractGame | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [loadingError, setLoadingError] = useState<string | null>(null)
-  const [isSmartContractGame, setIsSmartContractGame] = useState(false)
-
-  // Check if this is a smart contract game (Ethereum address format)
-  const isEthereumAddress = (address: string): boolean => {
-    return /^0x[a-fA-F0-9]{40}$/.test(address)
-  }
-
-  // Game metadata based on game key (fallback for non-smart contract games)
-  const getGameInfo = (key: string) => {
-    const gameData: { [key: string]: any } = {
-      '0x001': {
-        title: 'Classic Adventure',
-        description: 'Navigate through 4 challenging levels with increasing difficulty. Master the basics of platforming!',
-        difficulty: 'Easy',
-        levels: 4,
-        theme: 'Forest',
-        color: 'from-green-600 to-emerald-700'
-      },
-      '0x002': {
-        title: 'Speed Challenge',
-        description: 'Fast-paced action across 2 intense levels. Quick reflexes required!',
-        difficulty: 'Medium',
-        levels: 2,
-        theme: 'Industrial',
-        color: 'from-blue-600 to-cyan-700'
-      },
-      '0xABC': {
-        title: 'Boss Battle',
-        description: 'Ultimate challenge in a single epic level. Only the best survive!',
-        difficulty: 'Hard',
-        levels: 1,
-        theme: 'Volcanic',
-        color: 'from-red-600 to-orange-700'
-      },
-      '0x003': {
-        title: 'Sky Temple',
-        description: 'Ascend through 3 mystical levels in the clouds. Watch your step!',
-        difficulty: 'Medium',
-        levels: 3,
-        theme: 'Sky',
-        color: 'from-purple-600 to-indigo-700'
-      },
-      '0x004': {
-        title: 'Underground Maze',
-        description: 'Navigate 5 complex underground levels filled with secrets.',
-        difficulty: 'Hard',
-        levels: 5,
-        theme: 'Cave',
-        color: 'from-gray-600 to-slate-700'
-      },
-      '0x005': {
-        title: 'Speed Run Arena',
-        description: 'Race through 3 intense levels designed for speed. Every second counts!',
-        difficulty: 'Hard',
-        levels: 3,
-        theme: 'Neon',
-        color: 'from-pink-600 to-rose-700'
-      },
-      '0x006': {
-        title: 'Mystic Chambers',
-        description: 'Explore 4 mysterious levels filled with ancient puzzles and traps.',
-        difficulty: 'Medium',
-        levels: 4,
-        theme: 'Ancient',
-        color: 'from-amber-600 to-yellow-700'
-      }
-    }
-    return gameData[key] || gameData['0x001']
-  }
 
   // Convert smart contract game to game info format
-  const convertSmartContractToGameInfo = (scGame: SmartContractGame) => {
+  const getGameInfo = (scGame: SmartContractGame) => {
     const getDifficulty = (levelsCount: number): string => {
       if (levelsCount <= 2) return 'Easy';
       if (levelsCount <= 4) return 'Medium';
@@ -156,47 +69,26 @@ export default function GamePage() {
         throw new Error('Wallet not connected. Please connect your wallet to play blockchain games.')
       }
 
-      console.log(`Loading smart contract game with identifier: ${gameIdentifier}`);
+      console.log(`Loading blockchain game with identifier: ${gameIdentifier}`);
       const scGame = await getGameByIdOrAddress(gameIdentifier);
       
       setSmartContractGame(scGame);
-      setGameInfo(convertSmartContractToGameInfo(scGame));
-      
-      console.log('Smart contract game loaded:', scGame);
+      console.log('Blockchain game loaded:', scGame);
       
     } catch (error: any) {
-      console.error('Error loading smart contract game:', error);
+      console.error('Error loading blockchain game:', error);
       setLoadingError(error.message || 'Failed to load blockchain game');
-      
-      // Fallback to regular game loading
-      setIsSmartContractGame(false);
-      setGameInfo(getGameInfo(gameKey));
     }
   }
 
   useEffect(() => {
     if (gameKey) {
-      // Check if this is a smart contract game (Ethereum address or looks like one)
-      if (isEthereumAddress(gameKey) || gameKey.startsWith('0x')) {
-        setIsSmartContractGame(true);
-        loadSmartContractGame(gameKey);
-      } else {
-        setIsSmartContractGame(false);
-        setGameInfo(getGameInfo(gameKey));
-      }
+      loadSmartContractGame(gameKey);
     }
   }, [gameKey])
 
-  // Separate effect to reinitialize game when smart contract data is loaded
   useEffect(() => {
-    if (isSmartContractGame && smartContractGame && gameInitialized.current) {
-      // Reset and reinitialize the game with new data
-      gameInitialized.current = false;
-    }
-  }, [smartContractGame])
-
-  useEffect(() => {
-    if (gameInitialized.current || !gameContainerRef.current || !gameKey) return
+    if (gameInitialized.current || !gameContainerRef.current || !gameKey || !smartContractGame) return
     gameInitialized.current = true
 
     // Dynamically import kaboom to avoid SSR issues
@@ -285,74 +177,31 @@ export default function GamePage() {
       const MOVE_SPEED = 480
       const FALL_DEATH = 2400
 
-      // Load levels from smart contract or JSON file
+      // Load levels from smart contract data
       let LEVELS: string[][] = []
       let LEVELS_COUNT = 0
 
-      // Load levels data for specific game key
-      const loadLevelsData = async (): Promise<void> => {
-        try {
-          if (isSmartContractGame && smartContractGame) {
-            // Load from smart contract data
-            console.log('Loading levels from smart contract...');
-            console.log('Smart contract game data:', smartContractGame);
-            console.log('Smart contract levels:', smartContractGame.levels);
-            
-            LEVELS = smartContractGame.levels.map((level, index) => {
-              console.log(`Processing level ${index}:`, level);
-              console.log(`Level data:`, level.levelData);
-              
-              // Ensure levelData is a proper array of strings
-              const levelArray: string[] = Array.isArray(level.levelData) 
-                ? level.levelData.map(item => String(item))
-                : Array.from(level.levelData).map(item => String(item));
-              
-              console.log(`Converted level ${index} to array:`, levelArray);
-              return levelArray;
-            });
-            
-            LEVELS_COUNT = smartContractGame.levelsCount;
-            console.log(`Final LEVELS array:`, LEVELS);
-            console.log(`Loaded ${LEVELS_COUNT} levels from smart contract for game: ${smartContractGame.gameName}`);
-            setIsLoading(false);
-          } else if (!isSmartContractGame) {
-            // Load from JSON file (only for non-smart contract games)
-            console.log('Loading levels from JSON file...');
-            const response = await fetch('/data/levels.json')
-            const data: LevelData = await response.json()
-            
-            if (!data[gameKey]) {
-              throw new Error(`Game key "${gameKey}" not found in levels data`)
-            }
-            
-            LEVELS = data[gameKey].Levels.Levels
-            LEVELS_COUNT = data[gameKey].Levels.LevelsCount
-            console.log(`Loaded ${LEVELS_COUNT} levels for game key: ${gameKey}`)
-            setIsLoading(false)
-          } else {
-            // Smart contract game but no data loaded yet - wait for it
-            console.log('Waiting for smart contract game data to load...');
-            return;
-          }
-        } catch (error) {
-          console.error('Failed to load levels:', error)
-          setLoadingError('Failed to load game levels')
-          // Fallback to default levels if loading fails
-          LEVELS = [
-            [
-              "0000000000000",
-              "000--0000000",
-              "0000000$$000",
-              "0%0000===000",
-              "000000000000",
-              "000^^00>=0@0",
-              "=============",
-            ]
-          ]
-          LEVELS_COUNT = 1
-          setIsLoading(false)
-        }
-      }
+      // Process smart contract level data
+      console.log('Processing blockchain game levels...');
+      console.log('Smart contract game data:', smartContractGame);
+      console.log('Smart contract levels:', smartContractGame.levels);
+      
+      LEVELS = smartContractGame.levels.map((level, index) => {
+        console.log(`Processing level ${index}:`, level);
+        console.log(`Level data:`, level.levelData);
+        
+        // Ensure levelData is a proper array of strings
+        const levelArray: string[] = Array.isArray(level.levelData) 
+          ? level.levelData.map(item => String(item))
+          : Array.from(level.levelData).map(item => String(item));
+        
+        console.log(`Converted level ${index} to array:`, levelArray);
+        return levelArray;
+      });
+      
+      LEVELS_COUNT = smartContractGame.levelsCount;
+      console.log(`Final LEVELS array:`, LEVELS);
+      console.log(`Loaded ${LEVELS_COUNT} levels from blockchain for game: ${smartContractGame.gameName}`);
 
       // Define what each symbol means in the level graph
       const levelConf = {
@@ -449,7 +298,6 @@ export default function GamePage() {
           k.area(),
           k.scale(1),
           k.body(),
-          big(),
           k.anchor("bot"),
         ])
 
@@ -547,7 +395,7 @@ export default function GamePage() {
         ])
 
         k.add([
-          k.text(`${gameInfo?.title || gameKey}`, {
+          k.text(`${smartContractGame?.gameName || gameKey}`, {
             size: 16,
             font: "monospace",
           }),
@@ -606,7 +454,7 @@ export default function GamePage() {
 
       k.scene("loading", () => {
         k.add([
-          k.text(`Loading ${gameInfo?.title || gameKey}...`, {
+          k.text(`Loading ${smartContractGame?.gameName || 'Blockchain Game'}...`, {
             size: 32,
             font: "monospace",
           }),
@@ -659,7 +507,7 @@ export default function GamePage() {
           k.color(100, 255, 100),
         ])
         k.add([
-          k.text("Press any key to play again", {
+          k.text("You earned MONAD tokens!", {
             size: 24,
             font: "monospace",
           }),
@@ -670,21 +518,15 @@ export default function GamePage() {
         k.onKeyPress(() => k.go("game"))
       })
 
-      // Start with loading scene
-      k.go("loading")
-
-      // Load levels and start the game
-      loadLevelsData().then(() => {
-        if (LEVELS.length > 0) {
-          k.go("game")
-        }
-      })
+      // Start the game directly
+      k.go("game")
+      setIsLoading(false)
     })
 
     return () => {
       gameInitialized.current = false
     }
-  }, [gameKey, gameInfo, isSmartContractGame, smartContractGame])
+  }, [smartContractGame])
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
@@ -709,7 +551,7 @@ export default function GamePage() {
             <div className="text-red-400 text-6xl mb-4">⚠️</div>
             <h1 className="text-2xl font-bold text-white mb-4">Invalid Game Key</h1>
             <p className="text-gray-300 mb-6">
-              Please provide a valid game key in the URL (e.g., /game/0x001)
+              Please provide a valid blockchain game identifier
             </p>
             <Button asChild className="bg-purple-600 hover:bg-purple-700">
               <Link href="/play">← Back to Games</Link>
@@ -721,7 +563,7 @@ export default function GamePage() {
   }
 
   // Show loading error if smart contract game failed to load
-  if (loadingError && isSmartContractGame) {
+  if (loadingError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-red-900/20 border-red-500/30">
@@ -748,6 +590,8 @@ export default function GamePage() {
     )
   }
 
+  const gameInfo = smartContractGame ? getGameInfo(smartContractGame) : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
@@ -766,6 +610,9 @@ export default function GamePage() {
             <div className="flex items-center space-x-2">
               <Gamepad2 className="h-6 w-6 text-purple-400" />
               <span className="text-xl font-bold text-white">ChainJump</span>
+              <Badge className="bg-purple-600/20 text-purple-300 border-purple-400">
+                🔗 Blockchain
+              </Badge>
             </div>
           </div>
           
@@ -801,7 +648,7 @@ export default function GamePage() {
 
       <div className="container mx-auto p-6">
         {/* Game Info Card */}
-        {gameInfo && (
+        {gameInfo && smartContractGame && (
           <Card className={`mb-6 bg-gradient-to-r ${gameInfo.color} border-0 text-white`}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -820,42 +667,38 @@ export default function GamePage() {
                     <Badge variant="secondary" className="bg-white/20 text-white">
                       🎨 {gameInfo.theme}
                     </Badge>
-                    {isSmartContractGame && (
-                      <Badge variant="secondary" className="bg-white/20 text-white">
-                        🔗 Blockchain
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="bg-white/20 text-white">
+                      🔗 Blockchain
+                    </Badge>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-4xl font-bold">{gameKey}</div>
-                  <div className="text-white/80">{isSmartContractGame ? 'Contract Address' : 'Game ID'}</div>
+                  <div className="text-4xl font-bold">#{smartContractGame.gameId}</div>
+                  <div className="text-white/80">Game ID</div>
                 </div>
               </div>
               
-              {/* Smart Contract Game Additional Info */}
-              {isSmartContractGame && smartContractGame && (
-                <div className="mt-4 pt-4 border-t border-white/20">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-white/70">Prize Pool</div>
-                      <div className="font-semibold">{smartContractGame.prizePool} MONAD</div>
-                    </div>
-                    <div>
-                      <div className="text-white/70">Cost to Play</div>
-                      <div className="font-semibold">{smartContractGame.costOfPlay} MONAD</div>
-                    </div>
-                    <div>
-                      <div className="text-white/70">Total Players</div>
-                      <div className="font-semibold">{smartContractGame.totalPlayers}</div>
-                    </div>
-                    <div>
-                      <div className="text-white/70">Game ID</div>
-                      <div className="font-semibold">#{smartContractGame.gameId}</div>
-                    </div>
+              {/* Smart Contract Game Info */}
+              <div className="mt-4 pt-4 border-t border-white/20">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-white/70">Prize Pool</div>
+                    <div className="font-semibold">{smartContractGame.prizePool} MONAD</div>
+                  </div>
+                  <div>
+                    <div className="text-white/70">Cost to Play</div>
+                    <div className="font-semibold">{smartContractGame.costOfPlay} MONAD</div>
+                  </div>
+                  <div>
+                    <div className="text-white/70">Total Players</div>
+                    <div className="font-semibold">{smartContractGame.totalPlayers}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/70">Contract</div>
+                    <div className="font-semibold text-xs">{smartContractGame.gameAddress.slice(0, 8)}...</div>
                   </div>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -895,17 +738,11 @@ export default function GamePage() {
             {isLoading && (
               <div className="h-[600px] flex items-center justify-center">
                 <div className="text-center text-white">
-                  <div className="animate-spin text-4xl mb-4">
-                    {isSmartContractGame ? '🔗' : '🎮'}
+                  <div className="animate-spin text-4xl mb-4">🔗</div>
+                  <div className="text-xl">Loading Blockchain Game...</div>
+                  <div className="text-sm text-gray-400 mt-2">
+                    Fetching levels from smart contract...
                   </div>
-                  <div className="text-xl">
-                    Loading {isSmartContractGame ? 'Blockchain Game' : gameInfo?.title || gameKey}...
-                  </div>
-                  {isSmartContractGame && (
-                    <div className="text-sm text-gray-400 mt-2">
-                      Fetching levels from smart contract...
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -923,7 +760,7 @@ export default function GamePage() {
         <Card className="mt-6 bg-black/40 border-purple-800/30">
           <CardContent className="p-4">
             <h3 className="text-white font-semibold mb-3 flex items-center">
-              💡 Pro Tips
+              💡 Blockchain Game Tips
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300">
               <div>• Jump on enemies to defeat them</div>
@@ -934,12 +771,8 @@ export default function GamePage() {
               <div>• Use Down arrow for fast fall</div>
               <div>• "0" represents empty space in levels</div>
               <div>• Reach the portal (@) to advance</div>
-              {isSmartContractGame && (
-                <>
-                  <div>• This is a blockchain game with real rewards</div>
-                  <div>• Complete all levels to earn MONAD tokens</div>
-                </>
-              )}
+              <div>• This is a blockchain game with real rewards</div>
+              <div>• Complete all levels to earn MONAD tokens</div>
             </div>
           </CardContent>
         </Card>
