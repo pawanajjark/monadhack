@@ -167,4 +167,39 @@ export const disconnectWallet = () => {
 export const getSigner = () => signer;
 
 // Get current provider
-export const getProvider = () => provider; 
+export const getProvider = () => provider;
+
+// Send payment to game contract
+export const sendPayment = async (toAddress: string, amount: string) => {
+    if (!signer) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
+    }
+
+    try {
+        // Convert amount from MONAD to wei (multiply by 10^18)
+        const amountInWei = ethers.parseEther(amount);
+        
+        // Create transaction
+        const transaction = {
+            to: toAddress,
+            value: amountInWei,
+        };
+
+        // Send transaction
+        const txResponse = await signer.sendTransaction(transaction);
+        console.log('Payment transaction sent:', txResponse.hash);
+        
+        // Wait for transaction confirmation
+        const receipt = await txResponse.wait();
+        console.log('Payment confirmed:', receipt);
+        
+        return {
+            success: true,
+            transactionHash: txResponse.hash,
+            receipt: receipt
+        };
+    } catch (error) {
+        console.error('Payment failed:', error);
+        throw error;
+    }
+}; 

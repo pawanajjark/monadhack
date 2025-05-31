@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Maximize, Volume2, VolumeX, RotateCcw, Trophy, Coins, Target, Gamepad2 } from 'lucide-react'
 import { getGameByIdOrAddress, SmartContractGame } from '@/lib/smartContract'
-import { checkWalletConnection } from '@/lib/wallet'
+import { checkWalletConnection, sendPayment } from '@/lib/wallet'
 
 export default function BlockchainGamePage() {
   const gameContainerRef = useRef<HTMLDivElement>(null)
@@ -22,6 +22,9 @@ export default function BlockchainGamePage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [loadingError, setLoadingError] = useState<string | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending')
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [gameStarted, setGameStarted] = useState(false)
 
   // Convert smart contract game to game info format
   const getGameInfo = (scGame: SmartContractGame) => {
@@ -74,10 +77,12 @@ export default function BlockchainGamePage() {
       
       setSmartContractGame(scGame);
       console.log('Blockchain game loaded:', scGame);
+      setIsLoading(false);
       
     } catch (error: any) {
       console.error('Error loading blockchain game:', error);
       setLoadingError(error.message || 'Failed to load blockchain game');
+      setIsLoading(false);
     }
   }
 
@@ -87,8 +92,48 @@ export default function BlockchainGamePage() {
     }
   }, [gameKey])
 
+  // Handle payment for the game
+  const handlePayment = async () => {
+    if (!smartContractGame) {
+      setPaymentError('Game data not loaded');
+      return;
+    }
+
+    setPaymentStatus('processing');
+    setPaymentError(null);
+
+    try {
+      // Send payment to the game creator (owner) instead of contract address
+      const paymentResult = await sendPayment(
+        smartContractGame.owner,
+        smartContractGame.costOfPlay
+      );
+
+      if (paymentResult.success) {
+        setPaymentStatus('completed');
+        setGameStarted(true);
+        console.log('Payment successful:', paymentResult.transactionHash);
+      } else {
+        throw new Error('Payment failed');
+      }
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      setPaymentStatus('failed');
+      setPaymentError(error.message || 'Payment failed. Please try again.');
+    }
+  };
+
+  // Separate effect to reinitialize game when smart contract data is loaded
   useEffect(() => {
-    if (gameInitialized.current || !gameContainerRef.current || !gameKey || !smartContractGame) return
+    if (smartContractGame && gameInitialized.current) {
+      // Reset and reinitialize the game with new data
+      gameInitialized.current = false;
+    }
+  }, [smartContractGame])
+
+  // Game initialization - only start after payment is completed
+  useEffect(() => {
+    if (gameInitialized.current || !gameContainerRef.current || !gameKey || !smartContractGame || !gameStarted) return
     gameInitialized.current = true
 
     // Dynamically import kaboom to avoid SSR issues
@@ -299,6 +344,7 @@ export default function BlockchainGamePage() {
           k.scale(1),
           k.body(),
           k.anchor("bot"),
+          big(),
         ])
 
         player.onUpdate(() => {
@@ -520,13 +566,12 @@ export default function BlockchainGamePage() {
 
       // Start the game directly
       k.go("game")
-      setIsLoading(false)
     })
 
     return () => {
       gameInitialized.current = false
     }
-  }, [smartContractGame])
+  }, [smartContractGame, gameStarted])
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
@@ -735,7 +780,87 @@ export default function BlockchainGamePage() {
         {/* Game Container */}
         <Card className="bg-black/60 border-purple-800/30 overflow-hidden">
           <CardContent className="p-0">
-            {isLoading && (
+            {!gameStarted && smartContractGame ? (
+              // Payment UI
+              <div className="h-[600px] flex items-center justify-center p-8">
+                <div className="text-center text-white max-w-md">
+                  {paymentStatus === 'pending' && (
+                    <>
+                      <div className="text-6xl mb-6">💰</div>
+                      <h2 className="text-2xl font-bold mb-4">Ready to Play?</h2>
+                      <p className="text-gray-300 mb-6">
+                        Pay {smartContractGame.costOfPlay} MONAD to start playing this blockchain game.
+                        Your payment will be sent to the game creator.
+                      </p>
+                      <div className="bg-purple-900/30 border border-purple-600/30 rounded-lg p-4 mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Game Cost:</span>
+                          <span className="font-semibold text-yellow-400">{smartContractGame.costOfPlay} MONAD</span>
+                        </div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-400">Prize Pool:</span>
+                          <span className="font-semibold text-green-400">{smartContractGame.prizePool} MONAD</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400">Creator:</span>
+                          <span className="font-mono text-xs text-blue-400">{smartContractGame.owner.slice(0, 10)}...</span>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handlePayment}
+                        className="w-full bg-green-600 hover:bg-green-700 text-lg py-3"
+                      >
+                        <Coins className="h-5 w-5 mr-2" />
+                        Pay & Play Now
+                      </Button>
+                    </>
+                  )}
+                  
+                  {paymentStatus === 'processing' && (
+                    <>
+                      <div className="animate-spin text-6xl mb-6">⏳</div>
+                      <h2 className="text-2xl font-bold mb-4">Processing Payment...</h2>
+                      <p className="text-gray-300 mb-6">
+                        Please wait while your payment is being processed on the blockchain.
+                        Do not close this window.
+                      </p>
+                      <div className="bg-blue-900/30 border border-blue-600/30 rounded-lg p-4">
+                        <div className="text-sm text-blue-300">
+                          Sending {smartContractGame.costOfPlay} MONAD to {smartContractGame.owner.slice(0, 10)}...
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {paymentStatus === 'failed' && (
+                    <>
+                      <div className="text-6xl mb-6">❌</div>
+                      <h2 className="text-2xl font-bold mb-4">Payment Failed</h2>
+                      <p className="text-gray-300 mb-4">
+                        {paymentError || 'Your payment could not be processed. Please try again.'}
+                      </p>
+                      <div className="space-y-3">
+                        <Button 
+                          onClick={handlePayment}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <Coins className="h-5 w-5 mr-2" />
+                          Try Again
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => router.back()}
+                          className="w-full border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+                        >
+                          <ArrowLeft className="h-4 w-4 mr-2" />
+                          Go Back
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : isLoading ? (
               <div className="h-[600px] flex items-center justify-center">
                 <div className="text-center text-white">
                   <div className="animate-spin text-4xl mb-4">🔗</div>
@@ -745,14 +870,15 @@ export default function BlockchainGamePage() {
                   </div>
                 </div>
               </div>
+            ) : (
+              <div 
+                ref={gameContainerRef}
+                className="w-full flex justify-center bg-gradient-to-b from-slate-800 to-slate-900"
+                style={{ height: '600px' }}
+              >
+                <canvas className="max-w-full max-h-full rounded-lg" />
+              </div>
             )}
-            <div 
-              ref={gameContainerRef}
-              className="w-full flex justify-center bg-gradient-to-b from-slate-800 to-slate-900"
-              style={{ height: '600px' }}
-            >
-              <canvas className="max-w-full max-h-full rounded-lg" />
-            </div>
           </CardContent>
         </Card>
 
