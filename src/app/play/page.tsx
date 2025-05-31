@@ -207,6 +207,133 @@ export default function PlayPage() {
 
             <TabsContent value="games" className="mt-8">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Game 0x001 */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0x001"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0x001</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-green-600/20 text-green-300">
+                        Easy
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">4 Levels</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>1,234</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0x001">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Game 0x002 */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0x002"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0x002</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-yellow-600/20 text-yellow-300">
+                        Medium
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">2 Levels</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>892</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0x002">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Game 0xABC */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0xABC"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0xABC</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-red-600/20 text-red-300">
+                        Hard
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">1 Level</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>567</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0xABC">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Featured Games */}
                 {featuredGames.map((game) => (
                   <Card
                     key={game.id}
