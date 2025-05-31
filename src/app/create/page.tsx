@@ -308,7 +308,8 @@ export default function CreatePage() {
     }
 
     // Here you would integrate with blockchain to publish the game
-    alert(`Game "${game.name}" ready to publish!\n\nLevels: ${game.levels.length}\nEntry Fee: ${game.entryFee} MONAD\nDifficulty: ${game.difficulty}`)
+    console.log("game", game)
+    alert(`Game "${game.name}" ready to publish!\n\nLevels: ${game.levels}\nEntry Fee: ${game.entryFee} MONAD\nDifficulty: ${game.difficulty}`)
   }
 
   // Update preview in real-time when grid changes
