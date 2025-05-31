@@ -14,21 +14,27 @@ export default function GamingPlatform() {
   const featuredGames = [
     {
       id: 1,
-      title: "Neon Runner",
-      creator: "GameDev123",
-      prize: "500 GAME",
-      players: 1247,
-      difficulty: "Easy",
-      image: "/placeholder.svg?height=200&width=300",
+      title: "Kaboom Platformer",
+      creator: "MonadHack Team",
+      prize: "1000 MONAD",
+      players: 1,
+      difficulty: "Medium",
+      image: "/game-preview.jpg",
+      icon: "🎮",
+      description: "A classic platformer game with multiple levels, enemies, and power-ups built with Kaboom.js",
+      tags: ["Platformer", "Action", "Retro"]
     },
     {
       id: 2,
-      title: "Crystal Caves",
-      creator: "PixelMaster",
-      prize: "1,200 GAME",
-      players: 892,
-      difficulty: "Medium",
-      image: "/placeholder.svg?height=200&width=300",
+      title: "Space Adventure",
+      creator: "Indie Dev",
+      prize: "500 MONAD",
+      players: 1,
+      difficulty: "Hard",
+      image: "/space-game.jpg",
+      icon: "🚀",
+      description: "Explore the cosmos in this thrilling space adventure game",
+      tags: ["Space", "Adventure", "Sci-Fi"]
     },
     {
       id: 3,
@@ -160,41 +166,57 @@ export default function GamingPlatform() {
             </TabsList>
 
             <TabsContent value="games" className="mt-8">
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+                  <h3 className="text-xl font-semibold mb-3 text-gray-800">🎮 Play Games</h3>
+                  <p className="text-gray-600 mb-4">
+                    Choose a game to play by selecting a game key:
+                  </p>
+                  <div className="space-y-2">
+                    <a 
+                      href="/game/0x001" 
+                      className="block w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors text-center"
+                    >
+                      Game 0x001 (4 Levels)
+                    </a>
+                    <a 
+                      href="/game/0x002" 
+                      className="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors text-center"
+                    >
+                      Game 0x002 (2 Levels)
+                    </a>
+                    <a 
+                      href="/game/0xABC" 
+                      className="block w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors text-center"
+                    >
+                      Game 0xABC (1 Level)
+                    </a>
+                  </div>
+                </div>
                 {featuredGames.map((game) => (
                   <Card
-                    key={game.id}
-                    className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all"
+                    key={game.title}
+                    className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                   >
-                    <CardHeader className="pb-3">
-                      <img
-                        src={game.image || "/placeholder.svg"}
-                        alt={game.title}
-                        className="w-full h-40 object-cover rounded-lg mb-3"
-                      />
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-white">{game.title}</CardTitle>
-                          <CardDescription className="text-gray-400">by {game.creator}</CardDescription>
-                        </div>
-                        <Badge variant="secondary" className="bg-purple-600/20 text-purple-300">
-                          {game.difficulty}
-                        </Badge>
+                    <CardHeader>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl">{game.icon}</span>
+                        <CardTitle className="text-lg">{game.title}</CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center space-x-2 text-yellow-400">
-                          <Trophy className="h-4 w-4" />
-                          <span className="font-semibold">{game.prize}</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-gray-400">
-                          <Users className="h-4 w-4" />
-                          <span>{game.players}</span>
-                        </div>
+                      <p className="text-gray-600 mb-4">{game.description}</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {game.tags?.map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                        <Play className="h-4 w-4 mr-2" />
+                      <Button className="w-full group-hover:bg-blue-600 transition-colors">
                         Play Now
                       </Button>
                     </CardContent>
