@@ -194,29 +194,6 @@ export default function GamingPlatform() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 px-4 bg-black/20">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-purple-400">12,547</div>
-              <div className="text-gray-400">Active Players</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-yellow-400">₿ 45.2</div>
-              <div className="text-gray-400">Total Prizes</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-green-400">1,892</div>
-              <div className="text-gray-400">Games Created</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-blue-400">98.7%</div>
-              <div className="text-gray-400">Uptime</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-black/40 border-t border-purple-800/30 py-12 px-4">

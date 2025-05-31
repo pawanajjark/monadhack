@@ -189,13 +189,7 @@ export default function PlayPage() {
     },
   ]
 
-  const leaderboard = [
-    { rank: 1, player: "SpeedDemon", score: 15420, tokens: 2500 },
-    { rank: 2, player: "JumpMaster", score: 14890, tokens: 2000 },
-    { rank: 3, player: "CoinHunter", score: 14230, tokens: 1500 },
-    { rank: 4, player: "PlatformPro", score: 13980, tokens: 1000 },
-    { rank: 5, player: "GameChamp", score: 13750, tokens: 800 },
-  ]
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -266,12 +260,6 @@ export default function PlayPage() {
               </TabsTrigger>
               <TabsTrigger value="blockchain" className="data-[state=active]:bg-purple-600">
                 Blockchain Games
-              </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600">
-                Leaderboard
-              </TabsTrigger>
-              <TabsTrigger value="tournaments" className="data-[state=active]:bg-purple-600">
-                Tournaments
               </TabsTrigger>
             </TabsList>
 
@@ -535,7 +523,7 @@ export default function PlayPage() {
                       >
                         <CardHeader className="pb-3">
                           <img
-                            src="/placeholder.svg?height=200&width=300"
+                            src="/game.png"
                             alt={game.gameName}
                             className="w-full h-40 object-cover rounded-lg mb-3"
                           />
@@ -625,121 +613,6 @@ export default function PlayPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="leaderboard" className="mt-8">
-              <Card className="bg-black/40 border-purple-800/30">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center">
-                    <Crown className="h-5 w-5 mr-2 text-yellow-400" />
-                    Global Leaderboard
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Top players competing for the ultimate prize pool
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {leaderboard.map((player) => (
-                      <div
-                        key={player.rank}
-                        className="flex items-center justify-between p-4 rounded-lg bg-purple-900/20 border border-purple-800/30"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                              player.rank === 1
-                                ? "bg-yellow-500 text-black"
-                                : player.rank === 2
-                                  ? "bg-gray-400 text-black"
-                                  : player.rank === 3
-                                    ? "bg-amber-600 text-black"
-                                    : "bg-purple-600 text-white"
-                            }`}
-                          >
-                            {player.rank}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-white">{player.player}</div>
-                            <div className="text-sm text-gray-400">Score: {player.score.toLocaleString()}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2 text-yellow-400">
-                          <Coins className="h-4 w-4" />
-                          <span className="font-semibold">{player.tokens}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="tournaments" className="mt-8">
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="bg-black/40 border-purple-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-white">Weekly Championship</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Compete for the biggest prize pool of the week
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Prize Pool</span>
-                      <span className="text-yellow-400 font-semibold">5,000 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Entry Fee</span>
-                      <span className="text-white">50 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Players</span>
-                      <span className="text-white">847/1000</span>
-                    </div>
-                    <Progress value={84.7} className="h-2" />
-                    <Button 
-                      className="w-full bg-yellow-600 hover:bg-yellow-700"
-                      disabled={!walletInfo}
-                    >
-                      {walletInfo ? "Join Tournament" : "Connect Wallet to Join"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-black/40 border-purple-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-white">Speed Run Challenge</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Beat the clock in this fast-paced tournament
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Prize Pool</span>
-                      <span className="text-yellow-400 font-semibold">2,500 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Entry Fee</span>
-                      <span className="text-white">25 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Time Limit</span>
-                      <span className="text-white">2 hours</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-red-400">
-                      <Timer className="h-4 w-4" />
-                      <span>Starts in 1h 23m</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
-                      disabled={!walletInfo}
-                    >
-                      {walletInfo ? "Set Reminder" : "Connect Wallet"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
           </Tabs>
         </div>
       </section>
@@ -768,16 +641,6 @@ export default function PlayPage() {
                 <li>
                   <a href="#" className="hover:text-purple-400 transition-colors">
                     Game Creator
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Tournaments
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Leaderboard
                   </a>
                 </li>
               </ul>
