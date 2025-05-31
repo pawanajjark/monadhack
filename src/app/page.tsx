@@ -1,12 +1,65 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Gamepad2, Coins, Play, Plus, Wallet } from "lucide-react"
+import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
+
+interface WalletInfo {
+  address: string;
+  network: string;
+  chainId: string;
+  balance: string;
+}
 
 export default function GamingPlatform() {
-  const [connectedWallet, setConnectedWallet] = useState(false)
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Check if wallet is already connected on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const connection = await checkWalletConnection()
+        if (connection) {
+          setWalletInfo(connection)
+        }
+      } catch (error) {
+        console.error("Error checking wallet connection:", error)
+      }
+    }
+    
+    checkConnection()
+  }, [])
+
+  const handleWalletConnect = async () => {
+    if (walletInfo) {
+      // Disconnect wallet
+      disconnectWallet()
+      setWalletInfo(null)
+      setError(null)
+      return
+    }
+
+    setIsConnecting(true)
+    setError(null)
+
+    try {
+      const connection = await getWalletInformation()
+      setWalletInfo(connection)
+    } catch (error: any) {
+      setError(error.message || "Failed to connect wallet")
+      console.error("Wallet connection error:", error)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -18,21 +71,36 @@ export default function GamingPlatform() {
             <span className="text-2xl font-bold text-white">ChainJump</span>
           </Link>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-yellow-400">
-              <Coins className="h-5 w-5" />
-              <span className="font-semibold">1,250 GAME</span>
-            </div>
+            {walletInfo && (
+              <div className="flex items-center space-x-2 text-yellow-400">
+                <Coins className="h-5 w-5" />
+                <span className="font-semibold">{walletInfo.balance} MONAD</span>
+              </div>
+            )}
             <Button
-              onClick={() => setConnectedWallet(!connectedWallet)}
-              variant={connectedWallet ? "secondary" : "default"}
-              className="bg-purple-600 hover:bg-purple-700"
+              onClick={handleWalletConnect}
+              disabled={isConnecting}
+              variant={walletInfo ? "secondary" : "default"}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
             >
               <Wallet className="h-4 w-4 mr-2" />
-              {connectedWallet ? "Connected" : "Connect Wallet"}
+              {isConnecting 
+                ? "Connecting..." 
+                : walletInfo 
+                  ? formatAddress(walletInfo.address)
+                  : "Connect Wallet"
+              }
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 mx-4 mt-4 rounded-lg">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section className="py-20 px-4">
@@ -49,6 +117,7 @@ export default function GamingPlatform() {
               <Button 
                 size="lg" 
                 className="bg-purple-600 hover:bg-purple-700 text-lg px-8 py-4"
+                disabled={!walletInfo}
               >
                 <Play className="h-5 w-5 mr-2" />
                 Join
@@ -59,12 +128,18 @@ export default function GamingPlatform() {
                 size="lg"
                 variant="outline"
                 className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white text-lg px-8 py-4"
+                disabled={!walletInfo}
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Create
               </Button>
             </Link>
           </div>
+          {!walletInfo && (
+            <p className="text-gray-400 text-sm mt-4">
+              Connect your wallet to start playing and creating games
+            </p>
+          )}
         </div>
       </section>
 

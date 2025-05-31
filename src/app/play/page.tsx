@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,9 +8,62 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Gamepad2, Trophy, Coins, Users, Timer, Play, Crown, Wallet } from "lucide-react"
+import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
+
+interface WalletInfo {
+  address: string;
+  network: string;
+  chainId: string;
+  balance: string;
+}
 
 export default function PlayPage() {
-  const [connectedWallet, setConnectedWallet] = useState(false)
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Check if wallet is already connected on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const connection = await checkWalletConnection()
+        if (connection) {
+          setWalletInfo(connection)
+        }
+      } catch (error) {
+        console.error("Error checking wallet connection:", error)
+      }
+    }
+    
+    checkConnection()
+  }, [])
+
+  const handleWalletConnect = async () => {
+    if (walletInfo) {
+      // Disconnect wallet
+      disconnectWallet()
+      setWalletInfo(null)
+      setError(null)
+      return
+    }
+
+    setIsConnecting(true)
+    setError(null)
+
+    try {
+      const connection = await getWalletInformation()
+      setWalletInfo(connection)
+    } catch (error: any) {
+      setError(error.message || "Failed to connect wallet")
+      console.error("Wallet connection error:", error)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
 
   const featuredGames = [
     {
@@ -87,21 +140,36 @@ export default function PlayPage() {
             <span className="text-2xl font-bold text-white">ChainJump</span>
           </Link>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-yellow-400">
-              <Coins className="h-5 w-5" />
-              <span className="font-semibold">1,250 GAME</span>
-            </div>
+            {walletInfo && (
+              <div className="flex items-center space-x-2 text-yellow-400">
+                <Coins className="h-5 w-5" />
+                <span className="font-semibold">{walletInfo.balance} MONAD</span>
+              </div>
+            )}
             <Button
-              onClick={() => setConnectedWallet(!connectedWallet)}
-              variant={connectedWallet ? "secondary" : "default"}
-              className="bg-purple-600 hover:bg-purple-700"
+              onClick={handleWalletConnect}
+              disabled={isConnecting}
+              variant={walletInfo ? "secondary" : "default"}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
             >
               <Wallet className="h-4 w-4 mr-2" />
-              {connectedWallet ? "Connected" : "Connect Wallet"}
+              {isConnecting 
+                ? "Connecting..." 
+                : walletInfo 
+                  ? formatAddress(walletInfo.address)
+                  : "Connect Wallet"
+              }
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 mx-4 mt-4 rounded-lg">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Back Button */}
       <section className="py-8 px-4">
@@ -171,9 +239,12 @@ export default function PlayPage() {
                           <span>{game.players}</span>
                         </div>
                       </div>
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                      <Button 
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                        disabled={!walletInfo}
+                      >
                         <Play className="h-4 w-4 mr-2" />
-                        Play Now
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
                       </Button>
                     </CardContent>
                   </Card>
@@ -252,7 +323,12 @@ export default function PlayPage() {
                       <span className="text-white">847/1000</span>
                     </div>
                     <Progress value={84.7} className="h-2" />
-                    <Button className="w-full bg-yellow-600 hover:bg-yellow-700">Join Tournament</Button>
+                    <Button 
+                      className="w-full bg-yellow-600 hover:bg-yellow-700"
+                      disabled={!walletInfo}
+                    >
+                      {walletInfo ? "Join Tournament" : "Connect Wallet to Join"}
+                    </Button>
                   </CardContent>
                 </Card>
 
@@ -283,8 +359,9 @@ export default function PlayPage() {
                     <Button
                       variant="outline"
                       className="w-full border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+                      disabled={!walletInfo}
                     >
-                      Set Reminder
+                      {walletInfo ? "Set Reminder" : "Connect Wallet"}
                     </Button>
                   </CardContent>
                 </Card>
