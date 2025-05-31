@@ -90,6 +90,7 @@ export default function CreatePage() {
   const [isDragging, setIsDragging] = useState(false)
   const [presets, setPresets] = useState<LevelData>({})
   const [selectedPreset, setSelectedPreset] = useState("")
+  const [isPublishing, setIsPublishing] = useState(false)
   
   const previewRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<any>(null)
@@ -307,49 +308,56 @@ export default function CreatePage() {
       return
     }
 
-    // Convert game data for publishing - replace blank spaces with '0'
-    const levelsData = game.levels.map(level => 
-      level.grid.map(row => 
-        '"' + row.map(cell => cell === ' ' ? '0' : cell).join('') + '"'
-      )
-    )
-
-    // Format as a single string like the example
-    const levelsString = '[' + levelsData.map(level => 
-      '[' + level.join(',') + ']'
-    ).join(',') + ']'
-
-    // Convert cost to wei (multiply by 10^18) for smart contract
-    const costInWei = (BigInt(game.entryFee) * BigInt(10 ** 18)).toString()
-
-    const gamePayload = {
-      gameName: game.name,
-      levels: levelsString,
-      costOfPlay: costInWei
-    }
-
-    console.log("game payload:", gamePayload)
+    setIsPublishing(true)
 
     try {
-      // Send to your endpoint
-      const response = await fetch('/api/publish-game', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(gamePayload)
+      // Import the contract function
+      const { createGameWithLevelsAndCost } = await import('@/lib/smartContract')
+
+      // Convert game data for publishing - replace blank spaces with '0'
+      const levelsData = game.levels.map(level => 
+        level.grid.map(row => 
+          row.map(cell => cell === ' ' ? '0' : cell).join('')
+        )
+      )
+
+      // Convert cost to wei (multiply by 10^18) for smart contract
+      const costInWei = (BigInt(game.entryFee) * BigInt(10 ** 18)).toString()
+
+      console.log("Creating game with data:", {
+        gameName: game.name,
+        levels: levelsData,
+        costOfPlay: costInWei
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        alert(`Game "${game.name}" published successfully!`)
+      // Call the smart contract function directly
+      const result = await createGameWithLevelsAndCost(
+        game.name,
+        levelsData,
+        costInWei
+      )
+
+      if (result.success) {
+        alert(`Game "${game.name}" published successfully!\nTransaction: ${result.transactionHash}\nGame Address: ${result.gameAddress}`)
         console.log("Publish result:", result)
+        
+        // Reset the form
+        setGame({
+          name: "",
+          description: "",
+          difficulty: "Easy",
+          entryFee: 10,
+          levels: [],
+          creator: ""
+        })
       } else {
-        throw new Error(`Failed to publish: ${response.statusText}`)
+        throw new Error(result.error || 'Failed to create game')
       }
     } catch (error) {
       console.error("Publish error:", error)
       alert(`Failed to publish game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -676,10 +684,10 @@ export default function CreatePage() {
                   <Button
                     onClick={publishGame}
                     className="w-full bg-green-600 hover:bg-green-700"
-                    disabled={!walletInfo || game.levels.length === 0 || !game.name.trim()}
+                    disabled={!walletInfo || game.levels.length === 0 || !game.name.trim() || isPublishing}
                   >
                     <DollarSign className="h-4 w-4 mr-2" />
-                    Publish Game
+                    {isPublishing ? 'Publishing...' : 'Publish Game'}
                   </Button>
                 </div>
               </CardContent>

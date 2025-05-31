@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { getProvider } from './wallet';
+import { getProvider, getSigner } from './wallet';
 
 // Smart contract address
 const GAME_FACTORY_ADDRESS = '0xf8Aa9B30d26aE9185D7739e31280f29368CDfCBA';
@@ -95,6 +95,35 @@ const GAME_FACTORY_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "gameName",
+        "type": "string"
+      },
+      {
+        "internalType": "string[][]",
+        "name": "levels",
+        "type": "string[][]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "costOfPlay",
+        "type": "uint256"
+      }
+    ],
+    "name": "createGameWithLevelsAndCost",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "gameAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
@@ -365,4 +394,74 @@ export const getDifficultyColor = (difficulty: string): string => {
   }
   console.log('Selected color class:', color);
   return color;
+};
+
+// Create a new game with levels and cost
+export const createGameWithLevelsAndCost = async (
+  gameName: string,
+  levels: string[][],
+  costOfPlay: string
+): Promise<{ success: boolean; gameAddress?: string; transactionHash?: string; error?: string }> => {
+  try {
+    console.log('Creating game with levels and cost:', { gameName, levels, costOfPlay });
+    
+    const signer = getSigner();
+    if (!signer) {
+      throw new Error('No signer available. Please connect your wallet.');
+    }
+
+    const contract = new ethers.Contract(GAME_FACTORY_ADDRESS, GAME_FACTORY_ABI, signer);
+    console.log('Contract instance created with signer');
+
+    // Convert cost from string to BigInt (assuming it's already in wei)
+    const costInWei = BigInt(costOfPlay);
+    console.log('Cost in wei:', costInWei.toString());
+
+    // Call the smart contract function
+    console.log('Calling createGameWithLevelsAndCost...');
+    const transaction = await contract.createGameWithLevelsAndCost(
+      gameName,
+      levels,
+      costInWei
+    );
+
+    console.log('Transaction sent:', transaction.hash);
+
+    // Wait for transaction confirmation
+    const receipt = await transaction.wait();
+    console.log('Transaction confirmed:', receipt);
+
+    // Extract the game address from the transaction receipt
+    // The GameCreated event should contain the game address
+    let gameAddress = '';
+    if (receipt.logs && receipt.logs.length > 0) {
+      // Parse the logs to find the GameCreated event
+      for (const log of receipt.logs) {
+        try {
+          const parsedLog = contract.interface.parseLog(log);
+          if (parsedLog && parsedLog.name === 'GameCreated') {
+            gameAddress = parsedLog.args.gameAddress;
+            console.log('Game address from event:', gameAddress);
+            break;
+          }
+        } catch (error) {
+          // Skip logs that can't be parsed
+          continue;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      gameAddress: gameAddress,
+      transactionHash: transaction.hash
+    };
+
+  } catch (error) {
+    console.error('Error creating game:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
 }; 
