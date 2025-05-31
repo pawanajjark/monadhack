@@ -319,10 +319,13 @@ export default function CreatePage() {
       '[' + level.join(',') + ']'
     ).join(',') + ']'
 
+    // Convert cost to wei (multiply by 10^18) for smart contract
+    const costInWei = (BigInt(game.entryFee) * BigInt(10 ** 18)).toString()
+
     const gamePayload = {
       gameName: game.name,
       levels: levelsString,
-      costOfPlay: game.entryFee
+      costOfPlay: costInWei
     }
 
     console.log("game payload:", gamePayload)
