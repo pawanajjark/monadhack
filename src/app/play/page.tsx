@@ -120,6 +120,46 @@ export default function PlayPage() {
       difficulty: "Easy",
       image: "/placeholder.svg?height=200&width=300",
     },
+    {
+      id: 7,
+      title: "Sky Temple",
+      creator: "ChainJump Team",
+      prize: "3 Levels",
+      players: 756,
+      difficulty: "Medium",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x003"
+    },
+    {
+      id: 8,
+      title: "Underground Maze",
+      creator: "ChainJump Team", 
+      prize: "5 Levels",
+      players: 432,
+      difficulty: "Hard",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x004"
+    },
+    {
+      id: 9,
+      title: "Speed Run Arena",
+      creator: "ChainJump Team",
+      prize: "3 Levels", 
+      players: 1089,
+      difficulty: "Hard",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x005"
+    },
+    {
+      id: 10,
+      title: "Mystic Chambers",
+      creator: "ChainJump Team",
+      prize: "4 Levels",
+      players: 623,
+      difficulty: "Medium",
+      image: "/placeholder.svg?height=200&width=300", 
+      gameKey: "0x006"
+    },
   ]
 
   const leaderboard = [
@@ -366,13 +406,26 @@ export default function PlayPage() {
                           <span>{game.players}</span>
                         </div>
                       </div>
-                      <Button 
-                        className="w-full bg-purple-600 hover:bg-purple-700"
-                        disabled={!walletInfo}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
-                      </Button>
+                      {game.gameKey ? (
+                        <Button 
+                          asChild
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                          disabled={!walletInfo}
+                        >
+                          <Link href={`/game/${game.gameKey}`}>
+                            <Play className="h-4 w-4 mr-2" />
+                            {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                          disabled={!walletInfo}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
