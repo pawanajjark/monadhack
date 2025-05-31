@@ -307,9 +307,19 @@ export default function CreatePage() {
       return
     }
 
-    // Here you would integrate with blockchain to publish the game
-    console.log("game", game)
-    alert(`Game "${game.name}" ready to publish!\n\nLevels: ${game.levels}\nEntry Fee: ${game.entryFee} MONAD\nDifficulty: ${game.difficulty}`)
+    // Convert game data for publishing - replace blank spaces with '0'
+    const gameForPublishing = {
+      ...game,
+      levels: game.levels.map(level => ({
+        ...level,
+        grid: level.grid.map(row => 
+          row.map(cell => cell === ' ' ? '0' : cell)
+        )
+      }))
+    }
+
+    console.log("game", gameForPublishing)
+    alert(`Game "${game.name}" ready to publish!\n\nLevels: ${game.levels.length}\nEntry Fee: ${game.entryFee} MONAD\nDifficulty: ${game.difficulty}`)
   }
 
   // Update preview in real-time when grid changes
@@ -370,8 +380,6 @@ export default function CreatePage() {
         }
 
         k.scene("preview", () => {
-          k.destroyAll()
-          
           const levelData = grid.map(row => row.join(''))
           k.addLevel(levelData, levelConf)
 
