@@ -6,9 +6,16 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Maximize, Volume2, VolumeX, RotateCcw, Trophy, Coins, Target, Gamepad2 } from 'lucide-react'
+import { ArrowLeft, Maximize, Volume2, VolumeX, RotateCcw, Trophy, Coins, Target, Gamepad2, Wallet } from 'lucide-react'
 import { getGameByIdOrAddress, SmartContractGame } from '@/lib/smartContract'
-import { checkWalletConnection, sendPayment } from '@/lib/wallet'
+import { checkWalletConnection, sendPayment, getWalletInformation, disconnectWallet } from '@/lib/wallet'
+
+interface WalletInfo {
+  address: string;
+  network: string;
+  chainId: string;
+  balance: string;
+}
 
 export default function BlockchainGamePage() {
   const gameContainerRef = useRef<HTMLDivElement>(null)
@@ -25,6 +32,54 @@ export default function BlockchainGamePage() {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending')
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [gameStarted, setGameStarted] = useState(false)
+  
+  // Add wallet state management
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [walletError, setWalletError] = useState<string | null>(null)
+
+  // Check if wallet is already connected on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const connection = await checkWalletConnection()
+        if (connection) {
+          setWalletInfo(connection)
+        }
+      } catch (error) {
+        console.error("Error checking wallet connection:", error)
+      }
+    }
+    
+    checkConnection()
+  }, [])
+
+  const handleWalletConnect = async () => {
+    if (walletInfo) {
+      // Disconnect wallet
+      disconnectWallet()
+      setWalletInfo(null)
+      setWalletError(null)
+      return
+    }
+
+    setIsConnecting(true)
+    setWalletError(null)
+
+    try {
+      const connection = await getWalletInformation()
+      setWalletInfo(connection)
+    } catch (error: any) {
+      setWalletError(error.message || "Failed to connect wallet")
+      console.error("Wallet connection error:", error)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
 
   // Convert smart contract game to game info format
   const getGameInfo = (scGame: SmartContractGame) => {
@@ -640,6 +695,45 @@ export default function BlockchainGamePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
+      <header className="border-b border-purple-800/30 bg-black/20 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center space-x-2">
+            <Gamepad2 className="h-8 w-8 text-purple-400" />
+            <span className="text-2xl font-bold text-white">ChainJump</span>
+          </Link>
+          <div className="flex items-center space-x-4">
+            {walletInfo && (
+              <div className="flex items-center space-x-2 text-yellow-400">
+                <Coins className="h-5 w-5" />
+                <span className="font-semibold">{walletInfo.balance} MONAD</span>
+              </div>
+            )}
+            <Button
+              onClick={handleWalletConnect}
+              disabled={isConnecting}
+              variant={walletInfo ? "secondary" : "default"}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              {isConnecting 
+                ? "Connecting..." 
+                : walletInfo 
+                  ? formatAddress(walletInfo.address)
+                  : "Connect Wallet"
+              }
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Error Messages */}
+      {walletError && (
+        <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 mx-4 mt-4 rounded-lg">
+          <p className="text-sm">{walletError}</p>
+        </div>
+      )}
+
+      {/* Game Controls Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-purple-800/30 p-4">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -653,10 +747,8 @@ export default function BlockchainGamePage() {
               Back
             </Button>
             <div className="flex items-center space-x-2">
-              <Gamepad2 className="h-6 w-6 text-purple-400" />
-              <span className="text-xl font-bold text-white">ChainJump</span>
               <Badge className="bg-purple-600/20 text-purple-300 border-purple-400">
-                🔗 Blockchain
+                🔗 Blockchain Game
               </Badge>
             </div>
           </div>
