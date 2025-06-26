@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Gamepad2, Coins, Wallet, Save, Eye, Download, Upload, Play, Grid3X3, Trash2, Copy, Plus, Edit, X, DollarSign, Trophy, Users } from "lucide-react"
+import { Gamepad2, Coins, Wallet, Save, Eye, Download, Upload, Play, Grid3X3, Trash2, Copy, Plus, Edit, X, DollarSign, Trophy, Users, Sparkles, Loader2 } from "lucide-react"
 import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
 
 interface WalletInfo {
@@ -95,6 +95,11 @@ export default function CreatePage() {
   const previewRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<any>(null)
   const gameInitialized = useRef(false)
+
+  // Add AI generation state
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   // Load presets from levels.json
   useEffect(() => {
@@ -403,8 +408,8 @@ export default function CreatePage() {
         k.setGravity(3200)
 
         const levelConf = {
-          tileWidth: 32,
-          tileHeight: 32,
+          tileWidth: 64,
+          tileHeight: 64,
           tiles: {
             "=": () => [k.sprite("grass"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "platform"],
             "-": () => [k.sprite("steel"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "platform"],
@@ -448,7 +453,7 @@ export default function CreatePage() {
 
           k.onKeyPress("space", () => {
             if (player.isGrounded()) {
-              player.jump(1000)
+              player.jump(1320)
             }
           })
 
@@ -492,6 +497,47 @@ export default function CreatePage() {
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
   }, [])
+
+  // Add AI map generation function
+  const generateAIMap = async () => {
+    if (!aiPrompt.trim()) {
+      setAiError("Please enter a description for the level")
+      return
+    }
+
+    setIsGeneratingAI(true)
+    setAiError(null)
+
+    try {
+      const response = await fetch('/api/generate-map', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate map')
+      }
+
+      if (data.success && data.grid) {
+        setGrid(data.grid)
+        setLevelName(`AI: ${aiPrompt.slice(0, 30)}${aiPrompt.length > 30 ? '...' : ''}`)
+        setLevelDescription(`AI-generated level: ${aiPrompt}`)
+        setAiError(null)
+      } else {
+        throw new Error('Invalid response from AI service')
+      }
+    } catch (error) {
+      console.error('AI Generation Error:', error)
+      setAiError(error instanceof Error ? error.message : 'Failed to generate map')
+    } finally {
+      setIsGeneratingAI(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -695,7 +741,57 @@ export default function CreatePage() {
           </div>
         ) : (
           // Level Editor
-          <div className="grid lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            {/* AI Map Generator - NEW CARD */}
+            <Card className="bg-black/40 border-purple-800/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-purple-400" />
+                  AI Map Generator
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Describe your level and let AI create it
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="aiPrompt" className="text-white">Level Description</Label>
+                  <Textarea
+                    id="aiPrompt"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g., 'A challenging level with floating platforms, coins to collect, and enemies guarding the exit portal'"
+                    className="bg-black/20 border-purple-800/30 text-white min-h-[100px]"
+                    disabled={!walletInfo || isGeneratingAI}
+                  />
+                </div>
+                
+                {aiError && (
+                  <div className="text-red-400 text-sm bg-red-900/20 p-2 rounded">
+                    {aiError}
+                  </div>
+                )}
+
+                <Button
+                  onClick={generateAIMap}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  disabled={!walletInfo || isGeneratingAI || !aiPrompt.trim()}
+                >
+                  {isGeneratingAI ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Map
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Symbol Palette */}
             <Card className="bg-black/40 border-purple-800/30">
               <CardHeader>

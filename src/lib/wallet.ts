@@ -68,7 +68,7 @@ export const connectToMetamask = async () => {
     ]);
     
     // Verify we're on the correct network
-    if (chainId.toString(16).toLowerCase() !== monadTestnet.chainId.toString(16).toLowerCase()) {
+    if (chainId.toLowerCase() !== monadTestnet.chainId.toLowerCase()) {
         throw new Error('Please switch to Monad testnet network');
     }
 
