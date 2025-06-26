@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Gamepad2, Coins, Play, Plus, Wallet } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
+import { Gamepad2, Coins, Play, Plus, Wallet, Crown, Timer, Target, Star, Zap } from "lucide-react"
 import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
 
 interface WalletInfo {
@@ -33,6 +37,53 @@ export default function GamingPlatform() {
     
     checkConnection()
   }, [])
+
+  const featuredGames = [
+    {
+      id: 1,
+      title: "Kaboom Platformer",
+      creator: "MonadHack Team",
+      prize: "1000 MONAD",
+      players: 1,
+      difficulty: "Medium",
+      image: "/game-preview.jpg",
+      icon: "🎮",
+      description: "A classic platformer game with multiple levels, enemies, and power-ups built with Kaboom.js",
+      tags: ["Platformer", "Action", "Retro"]
+    },
+    {
+      id: 2,
+      title: "Space Adventure",
+      creator: "Indie Dev",
+      prize: "500 MONAD",
+      players: 1,
+      difficulty: "Hard",
+      image: "/space-game.jpg",
+      icon: "🚀",
+      description: "Explore the cosmos in this thrilling space adventure game",
+      tags: ["Space", "Adventure", "Sci-Fi"]
+    },
+    {
+      id: 3,
+      title: "Sky Jumper",
+      creator: "CloudNine",
+      prize: "800 GAME",
+      players: 2156,
+      difficulty: "Hard",
+      image: "/placeholder.svg?height=200&width=300",
+      icon: "☁️",
+      description: "Jump through the clouds in this exciting platformer",
+      tags: ["Platformer", "Casual"]
+    },
+  ]
+
+  const leaderboard = [
+    { rank: 1, player: "CryptoGamer", score: 125000, tokens: "2,500 GAME" },
+    { rank: 2, player: "BlockchainBeast", score: 118000, tokens: "1,800 GAME" },
+    { rank: 3, player: "DefiDaredevil", score: 112000, tokens: "1,200 GAME" },
+    { rank: 4, player: "NFTNinja", score: 108000, tokens: "800 GAME" },
+    { rank: 5, player: "MetaverseMaster", score: 105000, tokens: "500 GAME" },
+  ]
 
   const handleWalletConnect = async () => {
     if (walletInfo) {
@@ -143,29 +194,6 @@ export default function GamingPlatform() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 px-4 bg-black/20">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-purple-400">12,547</div>
-              <div className="text-gray-400">Active Players</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-yellow-400">₿ 45.2</div>
-              <div className="text-gray-400">Total Prizes</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-green-400">1,892</div>
-              <div className="text-gray-400">Games Created</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-blue-400">98.7%</div>
-              <div className="text-gray-400">Uptime</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-black/40 border-t border-purple-800/30 py-12 px-4">

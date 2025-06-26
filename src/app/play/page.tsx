@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { Gamepad2, Trophy, Coins, Users, Timer, Play, Crown, Wallet } from "lucide-react"
+import { Gamepad2, Trophy, Coins, Users, Timer, Play, Crown, Wallet, RefreshCw } from "lucide-react"
 import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
+import { getAllGamesWithInfo, SmartContractGame, formatAddress, getDifficulty, getDifficultyColor } from "@/lib/smartContract"
 
 interface WalletInfo {
   address: string;
@@ -21,6 +22,9 @@ export default function PlayPage() {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [smartContractGames, setSmartContractGames] = useState<SmartContractGame[]>([])
+  const [isLoadingGames, setIsLoadingGames] = useState(false)
+  const [gamesError, setGamesError] = useState<string | null>(null)
 
   // Check if wallet is already connected on component mount
   useEffect(() => {
@@ -38,12 +42,35 @@ export default function PlayPage() {
     checkConnection()
   }, [])
 
+  // Load smart contract games when wallet is connected
+  useEffect(() => {
+    if (walletInfo) {
+      loadSmartContractGames()
+    }
+  }, [walletInfo])
+
+  const loadSmartContractGames = async () => {
+    setIsLoadingGames(true)
+    setGamesError(null)
+    
+    try {
+      const games = await getAllGamesWithInfo()
+      setSmartContractGames(games)
+    } catch (error: any) {
+      setGamesError(error.message || "Failed to load games from smart contract")
+      console.error("Error loading smart contract games:", error)
+    } finally {
+      setIsLoadingGames(false)
+    }
+  }
+
   const handleWalletConnect = async () => {
     if (walletInfo) {
       // Disconnect wallet
       disconnectWallet()
       setWalletInfo(null)
       setError(null)
+      setSmartContractGames([])
       return
     }
 
@@ -61,7 +88,7 @@ export default function PlayPage() {
     }
   }
 
-  const formatAddress = (address: string) => {
+  const formatAddressDisplay = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
@@ -120,15 +147,49 @@ export default function PlayPage() {
       difficulty: "Easy",
       image: "/placeholder.svg?height=200&width=300",
     },
+    {
+      id: 7,
+      title: "Sky Temple",
+      creator: "ChainJump Team",
+      prize: "3 Levels",
+      players: 756,
+      difficulty: "Medium",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x003"
+    },
+    {
+      id: 8,
+      title: "Underground Maze",
+      creator: "ChainJump Team", 
+      prize: "5 Levels",
+      players: 432,
+      difficulty: "Hard",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x004"
+    },
+    {
+      id: 9,
+      title: "Speed Run Arena",
+      creator: "ChainJump Team",
+      prize: "3 Levels", 
+      players: 1089,
+      difficulty: "Hard",
+      image: "/placeholder.svg?height=200&width=300",
+      gameKey: "0x005"
+    },
+    {
+      id: 10,
+      title: "Mystic Chambers",
+      creator: "ChainJump Team",
+      prize: "4 Levels",
+      players: 623,
+      difficulty: "Medium",
+      image: "/placeholder.svg?height=200&width=300", 
+      gameKey: "0x006"
+    },
   ]
 
-  const leaderboard = [
-    { rank: 1, player: "SpeedDemon", score: 15420, tokens: 2500 },
-    { rank: 2, player: "JumpMaster", score: 14890, tokens: 2000 },
-    { rank: 3, player: "CoinHunter", score: 14230, tokens: 1500 },
-    { rank: 4, player: "PlatformPro", score: 13980, tokens: 1000 },
-    { rank: 5, player: "GameChamp", score: 13750, tokens: 800 },
-  ]
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -156,7 +217,7 @@ export default function PlayPage() {
               {isConnecting 
                 ? "Connecting..." 
                 : walletInfo 
-                  ? formatAddress(walletInfo.address)
+                  ? formatAddressDisplay(walletInfo.address)
                   : "Connect Wallet"
               }
             </Button>
@@ -193,20 +254,144 @@ export default function PlayPage() {
           </h2>
           
           <Tabs defaultValue="games" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-black/30 border border-purple-800/30 mb-8">
+            <TabsList className="grid w-full grid-cols-4 bg-black/30 border border-purple-800/30 mb-8">
               <TabsTrigger value="games" className="data-[state=active]:bg-purple-600">
                 Featured Games
               </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600">
-                Leaderboard
-              </TabsTrigger>
-              <TabsTrigger value="tournaments" className="data-[state=active]:bg-purple-600">
-                Tournaments
+              <TabsTrigger value="blockchain" className="data-[state=active]:bg-purple-600">
+                Blockchain Games
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="games" className="mt-8">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Game 0x001 */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0x001"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0x001</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-green-600/20 text-green-300">
+                        Easy
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">4 Levels</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>1,234</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0x001">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Game 0x002 */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0x002"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0x002</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-yellow-600/20 text-yellow-300">
+                        Medium
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">2 Levels</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>892</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0x002">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Game 0xABC */}
+                <Card className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all">
+                  <CardHeader className="pb-3">
+                    <img
+                      src="/placeholder.svg?height=200&width=300"
+                      alt="Game 0xABC"
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-white">Game 0xABC</CardTitle>
+                        <CardDescription className="text-gray-400">by ChainJump Team</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="bg-red-600/20 text-red-300">
+                        Hard
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center space-x-2 text-yellow-400">
+                        <Trophy className="h-4 w-4" />
+                        <span className="font-semibold">1 Level</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        <Users className="h-4 w-4" />
+                        <span>567</span>
+                      </div>
+                    </div>
+                    <Button 
+                      asChild
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={!walletInfo}
+                    >
+                      <Link href="/game/0xABC">
+                        <Play className="h-4 w-4 mr-2" />
+                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Featured Games */}
                 {featuredGames.map((game) => (
                   <Card
                     key={game.id}
@@ -239,134 +424,195 @@ export default function PlayPage() {
                           <span>{game.players}</span>
                         </div>
                       </div>
-                      <Button 
-                        className="w-full bg-purple-600 hover:bg-purple-700"
-                        disabled={!walletInfo}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        {walletInfo ? "Play Now" : "Connect Wallet to Play"}
-                      </Button>
+                      {game.gameKey ? (
+                        <Button 
+                          asChild
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                          disabled={!walletInfo}
+                        >
+                          <Link href={`/game/${game.gameKey}`}>
+                            <Play className="h-4 w-4 mr-2" />
+                            {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                          disabled={!walletInfo}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
               </div>
             </TabsContent>
 
-            <TabsContent value="leaderboard" className="mt-8">
-              <Card className="bg-black/40 border-purple-800/30">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center">
-                    <Crown className="h-5 w-5 mr-2 text-yellow-400" />
-                    Global Leaderboard
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Top players competing for the ultimate prize pool
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {leaderboard.map((player) => (
-                      <div
-                        key={player.rank}
-                        className="flex items-center justify-between p-4 rounded-lg bg-purple-900/20 border border-purple-800/30"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                              player.rank === 1
-                                ? "bg-yellow-500 text-black"
-                                : player.rank === 2
-                                  ? "bg-gray-400 text-black"
-                                  : player.rank === 3
-                                    ? "bg-amber-600 text-black"
-                                    : "bg-purple-600 text-white"
-                            }`}
-                          >
-                            {player.rank}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-white">{player.player}</div>
-                            <div className="text-sm text-gray-400">Score: {player.score.toLocaleString()}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2 text-yellow-400">
-                          <Coins className="h-4 w-4" />
-                          <span className="font-semibold">{player.tokens}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="tournaments" className="mt-8">
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="bg-black/40 border-purple-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-white">Weekly Championship</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Compete for the biggest prize pool of the week
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Prize Pool</span>
-                      <span className="text-yellow-400 font-semibold">5,000 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Entry Fee</span>
-                      <span className="text-white">50 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Players</span>
-                      <span className="text-white">847/1000</span>
-                    </div>
-                    <Progress value={84.7} className="h-2" />
-                    <Button 
-                      className="w-full bg-yellow-600 hover:bg-yellow-700"
-                      disabled={!walletInfo}
-                    >
-                      {walletInfo ? "Join Tournament" : "Connect Wallet to Join"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-black/40 border-purple-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-white">Speed Run Challenge</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Beat the clock in this fast-paced tournament
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Prize Pool</span>
-                      <span className="text-yellow-400 font-semibold">2,500 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Entry Fee</span>
-                      <span className="text-white">25 GAME</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Time Limit</span>
-                      <span className="text-white">2 hours</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-red-400">
-                      <Timer className="h-4 w-4" />
-                      <span>Starts in 1h 23m</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
-                      disabled={!walletInfo}
-                    >
-                      {walletInfo ? "Set Reminder" : "Connect Wallet"}
-                    </Button>
-                  </CardContent>
-                </Card>
+            <TabsContent value="blockchain" className="mt-8">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Smart Contract Games</h3>
+                  <p className="text-gray-400">Games deployed on the blockchain with real rewards</p>
+                </div>
+                <Button
+                  onClick={loadSmartContractGames}
+                  disabled={!walletInfo || isLoadingGames}
+                  variant="outline"
+                  className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingGames ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
               </div>
+
+              {!walletInfo && (
+                <Card className="bg-black/40 border-purple-800/30 mb-6">
+                  <CardContent className="p-6 text-center">
+                    <Wallet className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">Connect Your Wallet</h3>
+                    <p className="text-gray-400 mb-4">
+                      Connect your wallet to view and play blockchain games with real rewards
+                    </p>
+                    <Button
+                      onClick={handleWalletConnect}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      Connect Wallet
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {gamesError && (
+                <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 mb-6 rounded-lg">
+                  <p className="text-sm">{gamesError}</p>
+                </div>
+              )}
+
+              {isLoadingGames && (
+                <div className="text-center py-12">
+                  <RefreshCw className="h-8 w-8 text-purple-400 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-400">Loading games from blockchain...</p>
+                </div>
+              )}
+
+              {walletInfo && !isLoadingGames && smartContractGames.length === 0 && !gamesError && (
+                <Card className="bg-black/40 border-purple-800/30">
+                  <CardContent className="p-6 text-center">
+                    <Gamepad2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">No Games Found</h3>
+                    <p className="text-gray-400">
+                      No games are currently deployed on the smart contract
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {smartContractGames.length > 0 && (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {smartContractGames.map((game) => {
+                    const difficulty = getDifficulty(game.levelsCount)
+                    const difficultyColor = getDifficultyColor(difficulty)
+                    
+                    return (
+                      <Card
+                        key={game.gameId}
+                        className="bg-black/40 border-purple-800/30 hover:border-purple-600/50 transition-all"
+                      >
+                        <CardHeader className="pb-3">
+                          <img
+                            src="/game.png"
+                            alt={game.gameName}
+                            className="w-full h-40 object-cover rounded-lg mb-3"
+                          />
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-white">{game.gameName}</CardTitle>
+                              <CardDescription className="text-gray-400">
+                                by {formatAddress(game.owner)}
+                              </CardDescription>
+                            </div>
+                            <Badge variant="secondary" className={difficultyColor}>
+                              {difficulty}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3 mb-4">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center space-x-2 text-yellow-400">
+                                <Trophy className="h-4 w-4" />
+                                <span className="font-semibold">{game.prizePool} MONAD</span>
+                              </div>
+                              <div className="flex items-center space-x-2 text-gray-400">
+                                <Users className="h-4 w-4" />
+                                <span>{game.totalPlayers}</span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div className="text-sm text-gray-400">
+                                Cost: {game.costOfPlay} MONAD
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {game.levelsCount} Level{game.levelsCount !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            
+                            {/* Level Information */}
+                            {game.levels && game.levels.length > 0 && (
+                              <div className="mt-3 p-3 bg-purple-900/20 rounded-lg border border-purple-800/30">
+                                <h4 className="text-sm font-semibold text-purple-300 mb-2">Game Levels:</h4>
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                  {game.levels.map((level) => (
+                                    <div key={level.levelIndex} className="text-xs">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-purple-200 font-medium">
+                                          Level {level.levelIndex + 1}
+                                        </span>
+                                        <span className="text-gray-400">
+                                          {level.levelData.length} elements
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-500 truncate">
+                                        {level.levelData.length > 0 ? (
+                                          <span>
+                                            {level.levelData.slice(0, 3).join(', ')}
+                                            {level.levelData.length > 3 && '...'}
+                                          </span>
+                                        ) : (
+                                          <span>No data</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="text-xs text-gray-500">
+                              Game ID: {game.gameId} • {formatAddress(game.gameAddress)}
+                            </div>
+                          </div>
+                          <Button 
+                            asChild
+                            className="w-full bg-purple-600 hover:bg-purple-700"
+                            disabled={!walletInfo}
+                          >
+                            <Link href={`/blockchain-game/${game.gameAddress}`}>
+                              <Play className="h-4 w-4 mr-2" />
+                              {walletInfo ? "Play Now" : "Connect Wallet to Play"}
+                            </Link>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
             </TabsContent>
+
           </Tabs>
         </div>
       </section>
@@ -395,16 +641,6 @@ export default function PlayPage() {
                 <li>
                   <a href="#" className="hover:text-purple-400 transition-colors">
                     Game Creator
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Tournaments
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Leaderboard
                   </a>
                 </li>
               </ul>

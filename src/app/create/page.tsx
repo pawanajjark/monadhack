@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Gamepad2, Coins, Zap, Timer, Star, Plus, Target, Wallet, Upload, Save, Eye } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Gamepad2, Coins, Wallet, Save, Eye, Download, Upload, Play, Grid3X3, Trash2, Copy, Plus, Edit, X, DollarSign, Trophy, Users, Sparkles, Loader2 } from "lucide-react"
 import { getWalletInformation, checkWalletConnection, disconnectWallet } from "@/lib/wallet"
 
 interface WalletInfo {
@@ -18,12 +20,100 @@ interface WalletInfo {
   balance: string;
 }
 
+interface LevelData {
+  [gameKey: string]: {
+    Levels: {
+      LevelsCount: number
+      Levels: string[][]
+    }
+  }
+}
+
+interface GameLevel {
+  id: string
+  name: string
+  description: string
+  grid: string[][]
+}
+
+interface Game {
+  name: string
+  description: string
+  difficulty: string
+  entryFee: number
+  levels: GameLevel[]
+  creator: string
+}
+
+// Level symbols and their meanings
+const LEVEL_SYMBOLS = {
+  ' ': { name: 'Empty', description: 'Empty space', color: 'bg-gray-800', icon: '⬜' },
+  '=': { name: 'Grass Platform', description: 'Solid grass platform', color: 'bg-green-600', icon: '🟩' },
+  '-': { name: 'Steel Platform', description: 'Steel platform', color: 'bg-gray-500', icon: '⬛' },
+  '0': { name: 'Bag Block', description: 'Solid bag block', color: 'bg-amber-700', icon: '🟫' },
+  '$': { name: 'Coin', description: 'Collectible coin', color: 'bg-yellow-500', icon: '🪙' },
+  '%': { name: 'Prize Block', description: 'Hit for power-ups', color: 'bg-orange-600', icon: '📦' },
+  '^': { name: 'Spike', description: 'Dangerous spikes', color: 'bg-red-600', icon: '🔺' },
+  '#': { name: 'Apple', description: 'Power-up apple', color: 'bg-red-400', icon: '🍎' },
+  '>': { name: 'Enemy', description: 'Moving enemy', color: 'bg-purple-600', icon: '👻' },
+  '@': { name: 'Portal', description: 'Level exit portal', color: 'bg-blue-600', icon: '🌀' },
+}
+
+const GRID_WIDTH = 27
+const GRID_HEIGHT = 11
+
 export default function CreatePage() {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [gameName, setGameName] = useState("")
-  const [gameDescription, setGameDescription] = useState("")
+  
+  // Game creation state
+  const [game, setGame] = useState<Game>({
+    name: "",
+    description: "",
+    difficulty: "Easy",
+    entryFee: 10,
+    levels: [],
+    creator: ""
+  })
+  
+  // Level editor state
+  const [isEditingLevel, setIsEditingLevel] = useState(false)
+  const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
+  const [levelName, setLevelName] = useState("")
+  const [levelDescription, setLevelDescription] = useState("")
+  const [selectedSymbol, setSelectedSymbol] = useState(' ')
+  const [showPreview, setShowPreview] = useState(false)
+  const [grid, setGrid] = useState<string[][]>(() => 
+    Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(' '))
+  )
+  const [isDragging, setIsDragging] = useState(false)
+  const [presets, setPresets] = useState<LevelData>({})
+  const [selectedPreset, setSelectedPreset] = useState("")
+  const [isPublishing, setIsPublishing] = useState(false)
+  
+  const previewRef = useRef<HTMLDivElement>(null)
+  const gameRef = useRef<any>(null)
+  const gameInitialized = useRef(false)
+
+  // Add AI generation state
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
+  // Load presets from levels.json
+  useEffect(() => {
+    const loadPresets = async () => {
+      try {
+        const response = await fetch('/data/levels.json')
+        const data: LevelData = await response.json()
+        setPresets(data)
+      } catch (error) {
+        console.error('Failed to load presets:', error)
+      }
+    }
+    loadPresets()
+  }, [])
 
   // Check if wallet is already connected on component mount
   useEffect(() => {
@@ -32,6 +122,7 @@ export default function CreatePage() {
         const connection = await checkWalletConnection()
         if (connection) {
           setWalletInfo(connection)
+          setGame(prev => ({ ...prev, creator: connection.address }))
         }
       } catch (error) {
         console.error("Error checking wallet connection:", error)
@@ -43,10 +134,10 @@ export default function CreatePage() {
 
   const handleWalletConnect = async () => {
     if (walletInfo) {
-      // Disconnect wallet
       disconnectWallet()
       setWalletInfo(null)
       setError(null)
+      setGame(prev => ({ ...prev, creator: "" }))
       return
     }
 
@@ -56,6 +147,7 @@ export default function CreatePage() {
     try {
       const connection = await getWalletInformation()
       setWalletInfo(connection)
+      setGame(prev => ({ ...prev, creator: connection.address }))
     } catch (error: any) {
       setError(error.message || "Failed to connect wallet")
       console.error("Wallet connection error:", error)
@@ -66,6 +158,385 @@ export default function CreatePage() {
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  // Level Editor Functions
+  const handleCellClick = (row: number, col: number) => {
+    if (!walletInfo) return
+    
+    const newGrid = [...grid]
+    newGrid[row][col] = selectedSymbol
+    setGrid(newGrid)
+  }
+
+  const handleMouseDown = (row: number, col: number) => {
+    if (!walletInfo) return
+    setIsDragging(true)
+    handleCellClick(row, col)
+  }
+
+  const handleMouseEnter = (row: number, col: number) => {
+    if (!walletInfo || !isDragging) return
+    handleCellClick(row, col)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const clearGrid = () => {
+    setGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(' ')))
+  }
+
+  const fillBottomRow = () => {
+    const newGrid = [...grid]
+    for (let col = 0; col < GRID_WIDTH; col++) {
+      newGrid[GRID_HEIGHT - 1][col] = '='
+    }
+    setGrid(newGrid)
+  }
+
+  const loadPreset = (gameKey: string, levelIndex: number) => {
+    if (!presets[gameKey] || !presets[gameKey].Levels.Levels[levelIndex]) return
+    
+    const presetLevel = presets[gameKey].Levels.Levels[levelIndex]
+    const newGrid = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(' '))
+    
+    presetLevel.forEach((row, rowIndex) => {
+      if (rowIndex < GRID_HEIGHT) {
+        for (let colIndex = 0; colIndex < Math.min(row.length, GRID_WIDTH); colIndex++) {
+          newGrid[rowIndex][colIndex] = row[colIndex]
+        }
+      }
+    })
+    
+    setGrid(newGrid)
+    setLevelName(`${gameKey} Level ${levelIndex + 1}`)
+    setLevelDescription(`Preset level from ${gameKey}`)
+  }
+
+  // Game Management Functions
+  const startNewLevel = () => {
+    setIsEditingLevel(true)
+    setEditingLevelId(null)
+    setLevelName("")
+    setLevelDescription("")
+    setGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(' ')))
+    setShowPreview(false)
+  }
+
+  const editLevel = (level: GameLevel) => {
+    setIsEditingLevel(true)
+    setEditingLevelId(level.id)
+    setLevelName(level.name)
+    setLevelDescription(level.description)
+    setGrid(level.grid)
+    setShowPreview(false)
+  }
+
+  const saveLevel = () => {
+    if (!levelName.trim()) {
+      alert("Please enter a level name")
+      return
+    }
+
+    const newLevel: GameLevel = {
+      id: editingLevelId || Date.now().toString(),
+      name: levelName,
+      description: levelDescription,
+      grid: grid.map(row => [...row])
+    }
+
+    if (editingLevelId) {
+      // Update existing level
+      setGame(prev => ({
+        ...prev,
+        levels: prev.levels.map(level => 
+          level.id === editingLevelId ? newLevel : level
+        )
+      }))
+    } else {
+      // Add new level
+      setGame(prev => ({
+        ...prev,
+        levels: [...prev.levels, newLevel]
+      }))
+    }
+
+    setIsEditingLevel(false)
+    setEditingLevelId(null)
+  }
+
+  const deleteLevel = (levelId: string) => {
+    setGame(prev => ({
+      ...prev,
+      levels: prev.levels.filter(level => level.id !== levelId)
+    }))
+  }
+
+  const cancelLevelEdit = () => {
+    setIsEditingLevel(false)
+    setEditingLevelId(null)
+    setShowPreview(false)
+  }
+
+  const exportGame = () => {
+    const gameData = {
+      ...game,
+      levels: game.levels.map(level => ({
+        ...level,
+        grid: level.grid.map(row => row.join(''))
+      }))
+    }
+    
+    const dataStr = JSON.stringify(gameData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${game.name || 'custom-game'}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const publishGame = async () => {
+    if (!game.name.trim()) {
+      alert("Please enter a game name")
+      return
+    }
+    if (game.levels.length === 0) {
+      alert("Please add at least one level")
+      return
+    }
+    if (!walletInfo) {
+      alert("Please connect your wallet")
+      return
+    }
+
+    setIsPublishing(true)
+
+    try {
+      // Import the contract function
+      const { createGameWithLevelsAndCost } = await import('@/lib/smartContract')
+
+      // Convert game data for publishing - replace blank spaces with '0'
+      const levelsData = game.levels.map(level => 
+        level.grid.map(row => 
+          row.map(cell => cell === ' ' ? '0' : cell).join('')
+        )
+      )
+
+      // Convert cost to wei (multiply by 10^18) for smart contract
+      const costInWei = (BigInt(game.entryFee) * BigInt(10 ** 18)).toString()
+
+      console.log("Creating game with data:", {
+        gameName: game.name,
+        levels: levelsData,
+        costOfPlay: costInWei
+      })
+
+      // Call the smart contract function directly
+      const result = await createGameWithLevelsAndCost(
+        game.name,
+        levelsData,
+        costInWei
+      )
+
+      if (result.success) {
+        alert(`Game "${game.name}" published successfully!\nTransaction: ${result.transactionHash}\nGame Address: ${result.gameAddress}`)
+        console.log("Publish result:", result)
+        
+        // Reset the form
+        setGame({
+          name: "",
+          description: "",
+          difficulty: "Easy",
+          entryFee: 10,
+          levels: [],
+          creator: ""
+        })
+      } else {
+        throw new Error(result.error || 'Failed to create game')
+      }
+    } catch (error) {
+      console.error("Publish error:", error)
+      alert(`Failed to publish game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  // Update preview in real-time when grid changes
+  useEffect(() => {
+    if (showPreview && gameRef.current) {
+      try {
+        gameRef.current.go("preview")
+      } catch (error) {
+        console.log("Preview update error:", error)
+      }
+    }
+  }, [grid, showPreview])
+
+  // Initialize preview when showPreview changes
+  useEffect(() => {
+    if (showPreview && previewRef.current && !gameInitialized.current) {
+      gameInitialized.current = true
+      
+      import('kaboom').then(({ default: kaboom }) => {
+        const k = kaboom({
+          canvas: previewRef.current?.querySelector('canvas') || undefined,
+          width: 800,
+          height: 400,
+          background: [20, 20, 30],
+          crisp: true,
+        })
+
+        gameRef.current = k
+
+        // Load assets
+        k.loadSprite("bean", "/sprites/bean.png")
+        k.loadSprite("bag", "/sprites/bag.png")
+        k.loadSprite("ghosty", "/sprites/ghosty.png")
+        k.loadSprite("spike", "/sprites/spike.png")
+        k.loadSprite("grass", "/sprites/grass.png")
+        k.loadSprite("steel", "/sprites/steel.png")
+        k.loadSprite("prize", "/sprites/jumpy.png")
+        k.loadSprite("apple", "/sprites/apple.png")
+        k.loadSprite("portal", "/sprites/portal.png")
+        k.loadSprite("coin", "/sprites/coin.png")
+
+        k.setGravity(3200)
+
+        const levelConf = {
+          tileWidth: 64,
+          tileHeight: 64,
+          tiles: {
+            "=": () => [k.sprite("grass"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "platform"],
+            "-": () => [k.sprite("steel"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "platform"],
+            "0": () => [k.sprite("bag"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "platform"],
+            "$": () => [k.sprite("coin"), k.area(), k.pos(0, -9), k.anchor("bot"), "coin"],
+            "%": () => [k.sprite("prize"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "prize"],
+            "^": () => [k.sprite("spike"), k.area(), k.body({ isStatic: true }), k.anchor("bot"), "danger"],
+            "#": () => [k.sprite("apple"), k.area(), k.anchor("bot"), k.body(), "apple"],
+            ">": () => [k.sprite("ghosty"), k.area(), k.anchor("bot"), k.body(), "enemy"],
+            "@": () => [k.sprite("portal"), k.area({ scale: 0.5 }), k.anchor("bot"), k.pos(0, -12), "portal"],
+          },
+        }
+
+        k.scene("preview", () => {
+          const levelData = grid.map(row => row.join(''))
+          k.addLevel(levelData, levelConf)
+
+          const player = k.add([
+            k.sprite("bean"),
+            k.pos(50, 50),
+            k.area(),
+            k.scale(0.8),
+            k.body(),
+            k.anchor("bot"),
+            "player"
+          ])
+
+          player.onUpdate(() => {
+            k.camPos(player.pos)
+          })
+
+          k.add([
+            k.text("Live Preview - Use Arrow Keys + Space", {
+              size: 16,
+              font: "monospace",
+            }),
+            k.pos(20, 20),
+            k.fixed(),
+            k.color(255, 255, 255),
+          ])
+
+          k.onKeyPress("space", () => {
+            if (player.isGrounded()) {
+              player.jump(1320)
+            }
+          })
+
+          k.onKeyDown("left", () => {
+            player.move(-300, 0)
+          })
+
+          k.onKeyDown("right", () => {
+            player.move(300, 0)
+          })
+
+          player.onCollide("coin", (coin) => {
+            k.destroy(coin)
+          })
+
+          player.onCollide("danger", () => {
+            player.pos = k.vec2(50, 50)
+          })
+
+          player.onCollide("portal", () => {
+            player.pos = k.vec2(50, 50)
+          })
+        })
+
+        k.go("preview")
+      })
+    } else if (!showPreview && gameInitialized.current) {
+      gameInitialized.current = false
+      gameRef.current = null
+    }
+  }, [showPreview])
+
+  // Add mouse event listeners for drag functionality
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [])
+
+  // Add AI map generation function
+  const generateAIMap = async () => {
+    if (!aiPrompt.trim()) {
+      setAiError("Please enter a description for the level")
+      return
+    }
+
+    setIsGeneratingAI(true)
+    setAiError(null)
+
+    try {
+      const response = await fetch('/api/generate-map', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate map')
+      }
+
+      if (data.success && data.grid) {
+        setGrid(data.grid)
+        setLevelName(`AI: ${aiPrompt.slice(0, 30)}${aiPrompt.length > 30 ? '...' : ''}`)
+        setLevelDescription(`AI-generated level: ${aiPrompt}`)
+        setAiError(null)
+      } else {
+        throw new Error('Invalid response from AI service')
+      }
+    } catch (error) {
+      console.error('AI Generation Error:', error)
+      setAiError(error instanceof Error ? error.message : 'Failed to generate map')
+    } finally {
+      setIsGeneratingAI(false)
+    }
   }
 
   return (
@@ -110,12 +581,12 @@ export default function CreatePage() {
       )}
 
       {/* Back Button */}
-      <section className="py-8 px-4">
+      <section className="py-4 px-4">
         <div className="container mx-auto">
           <Link href="/">
             <Button
               variant="outline"
-              className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white mb-6"
+              className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
             >
               ← Back to Home
             </Button>
@@ -123,355 +594,513 @@ export default function CreatePage() {
         </div>
       </section>
 
-      {/* Game Creator */}
-      <section className="py-8 px-4">
-        <div className="container mx-auto">
-          <h2 className="text-4xl font-bold text-white mb-8 text-center">
-            Game <span className="text-purple-400">Creator</span>
-          </h2>
-          
-          {!walletInfo && (
-            <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-4 py-3 mb-8 rounded-lg text-center">
-              <p className="text-sm">Connect your wallet to start creating games on the blockchain</p>
-            </div>
-          )}
-          
-          <div className="grid lg:grid-cols-2 gap-8">
+      <div className="container mx-auto px-4 pb-8">
+        <h2 className="text-4xl font-bold text-white mb-8 text-center">
+          Game <span className="text-purple-400">Creator</span>
+        </h2>
+        
+        {!walletInfo && (
+          <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-4 py-3 mb-8 rounded-lg text-center">
+            <p className="text-sm">Connect your wallet to start creating games</p>
+          </div>
+        )}
+
+        {!isEditingLevel ? (
+          // Game Overview & Management
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Game Details */}
-            <Card className="bg-black/40 border-purple-800/30">
+            <Card className="lg:col-span-2 bg-black/40 border-purple-800/30">
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
-                  <Plus className="h-5 w-5 mr-2 text-green-400" />
+                  <Gamepad2 className="h-5 w-5 mr-2 text-purple-400" />
                   Game Details
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Set up your game's basic information and settings
+                  Set up your game's basic information and pricing
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="gameName" className="text-white">Game Name</Label>
-                  <Input
-                    id="gameName"
-                    value={gameName}
-                    onChange={(e) => setGameName(e.target.value)}
-                    placeholder="Enter your game name"
-                    className="bg-black/20 border-purple-800/30 text-white placeholder:text-gray-400"
-                    disabled={!walletInfo}
-                  />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gameName" className="text-white">Game Name</Label>
+                    <Input
+                      id="gameName"
+                      value={game.name}
+                      onChange={(e) => setGame(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="My Awesome Game"
+                      className="bg-black/20 border-purple-800/30 text-white"
+                      disabled={!walletInfo}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="difficulty" className="text-white">Difficulty</Label>
+                    <Select 
+                      value={game.difficulty} 
+                      onValueChange={(value) => setGame(prev => ({ ...prev, difficulty: value }))}
+                      disabled={!walletInfo}
+                    >
+                      <SelectTrigger className="bg-black/20 border-purple-800/30 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-black border-purple-800/30">
+                        <SelectItem value="Easy" className="text-white">Easy</SelectItem>
+                        <SelectItem value="Medium" className="text-white">Medium</SelectItem>
+                        <SelectItem value="Hard" className="text-white">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="gameDescription" className="text-white">Description</Label>
                   <Textarea
                     id="gameDescription"
-                    value={gameDescription}
-                    onChange={(e) => setGameDescription(e.target.value)}
+                    value={game.description}
+                    onChange={(e) => setGame(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Describe your game..."
-                    className="bg-black/20 border-purple-800/30 text-white placeholder:text-gray-400 min-h-[100px]"
+                    className="bg-black/20 border-purple-800/30 text-white min-h-[100px]"
                     disabled={!walletInfo}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-white">Game Thumbnail</Label>
-                  <div className="border-2 border-dashed border-purple-800/30 rounded-lg p-8 text-center">
-                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-400 mb-2">Upload game thumbnail</p>
-                    <Button 
-                      variant="outline" 
-                      className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
-                      disabled={!walletInfo}
-                    >
-                      Choose File
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <Button 
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  <Label htmlFor="entryFee" className="text-white">Entry Fee (MONAD)</Label>
+                  <Input
+                    id="entryFee"
+                    type="number"
+                    value={game.entryFee}
+                    onChange={(e) => setGame(prev => ({ ...prev, entryFee: parseInt(e.target.value) || 0 }))}
+                    placeholder="10"
+                    className="bg-black/20 border-purple-800/30 text-white"
                     disabled={!walletInfo}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Draft
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1 border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
-                    disabled={!walletInfo}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
+                  />
+                  <p className="text-xs text-gray-400">Players will pay this amount to play your game</p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Quick Creator */}
+            {/* Game Stats & Actions */}
             <Card className="bg-black/40 border-purple-800/30">
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
-                  <Zap className="h-5 w-5 mr-2 text-yellow-400" />
-                  Quick Creator
+                  <Trophy className="h-5 w-5 mr-2 text-yellow-400" />
+                  Game Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Levels Created</span>
+                    <span className="text-white font-semibold">{game.levels.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Entry Fee</span>
+                    <span className="text-yellow-400 font-semibold">{game.entryFee} MONAD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Difficulty</span>
+                    <Badge variant="outline" className={`
+                      ${game.difficulty === 'Easy' ? 'border-green-400 text-green-300' : ''}
+                      ${game.difficulty === 'Medium' ? 'border-yellow-400 text-yellow-300' : ''}
+                      ${game.difficulty === 'Hard' ? 'border-red-400 text-red-300' : ''}
+                    `}>
+                      {game.difficulty}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Creator</span>
+                    <span className="text-purple-400 text-xs">
+                      {walletInfo ? formatAddress(walletInfo.address) : 'Not connected'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-purple-800/30">
+                  <Button
+                    onClick={exportGame}
+                    variant="outline"
+                    className="w-full border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white"
+                    disabled={!walletInfo || game.levels.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Game
+                  </Button>
+
+                  <Button
+                    onClick={publishGame}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={!walletInfo || game.levels.length === 0 || !game.name.trim() || isPublishing}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    {isPublishing ? 'Publishing...' : 'Publish Game'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          // Level Editor
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            {/* AI Map Generator - NEW CARD */}
+            <Card className="bg-black/40 border-purple-800/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-purple-400" />
+                  AI Map Generator
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Build a platformer game in minutes with our drag-and-drop editor
+                  Describe your level and let AI create it
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Level Design</span>
-                    <span className="text-purple-400">Drag & Drop</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Character Customization</span>
-                    <span className="text-purple-400">50+ Options</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Obstacle Library</span>
-                    <span className="text-purple-400">100+ Items</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Background Themes</span>
-                    <span className="text-purple-400">25+ Themes</span>
-                  </div>
+                  <Label htmlFor="aiPrompt" className="text-white">Level Description</Label>
+                  <Textarea
+                    id="aiPrompt"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g., 'A challenging level with floating platforms, coins to collect, and enemies guarding the exit portal'"
+                    className="bg-black/20 border-purple-800/30 text-white min-h-[100px]"
+                    disabled={!walletInfo || isGeneratingAI}
+                  />
                 </div>
-                <Button 
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={!walletInfo}
+                
+                {aiError && (
+                  <div className="text-red-400 text-sm bg-red-900/20 p-2 rounded">
+                    {aiError}
+                  </div>
+                )}
+
+                <Button
+                  onClick={generateAIMap}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  disabled={!walletInfo || isGeneratingAI || !aiPrompt.trim()}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {walletInfo ? "Open Level Editor" : "Connect Wallet to Create"}
+                  {isGeneratingAI ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Map
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Game Mechanics */}
-          <div className="mt-8">
+            {/* Symbol Palette */}
             <Card className="bg-black/40 border-purple-800/30">
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
-                  <Target className="h-5 w-5 mr-2 text-red-400" />
-                  Game Mechanics
+                  <Grid3X3 className="h-5 w-5 mr-2 text-blue-400" />
+                  Symbol Palette
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Choose from various game modes and mechanics for your platformer
+                  Click to select, then click/drag on grid
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Badge 
-                    variant="outline" 
-                    className={`border-purple-400 text-purple-300 justify-center py-3 transition-colors ${
-                      walletInfo 
-                        ? "cursor-pointer hover:bg-purple-400 hover:text-white" 
-                        : "opacity-50 cursor-not-allowed"
+              <CardContent className="space-y-2">
+                {Object.entries(LEVEL_SYMBOLS).map(([symbol, info]) => (
+                  <Button
+                    key={symbol}
+                    variant={selectedSymbol === symbol ? "default" : "outline"}
+                    className={`w-full justify-start text-left ${
+                      selectedSymbol === symbol 
+                        ? "bg-purple-600 hover:bg-purple-700" 
+                        : "border-purple-800/30 hover:bg-purple-800/20"
                     }`}
+                    onClick={() => setSelectedSymbol(symbol)}
+                    disabled={!walletInfo}
                   >
-                    <Timer className="h-4 w-4 mr-2" />
-                    Time Attack
-                  </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={`border-yellow-400 text-yellow-300 justify-center py-3 transition-colors ${
-                      walletInfo 
-                        ? "cursor-pointer hover:bg-yellow-400 hover:text-black" 
-                        : "opacity-50 cursor-not-allowed"
-                    }`}
-                  >
-                    <Coins className="h-4 w-4 mr-2" />
-                    Coin Rush
-                  </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={`border-green-400 text-green-300 justify-center py-3 transition-colors ${
-                      walletInfo 
-                        ? "cursor-pointer hover:bg-green-400 hover:text-black" 
-                        : "opacity-50 cursor-not-allowed"
-                    }`}
-                  >
-                    <Star className="h-4 w-4 mr-2" />
-                    Star Collect
-                  </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={`border-red-400 text-red-300 justify-center py-3 transition-colors ${
-                      walletInfo 
-                        ? "cursor-pointer hover:bg-red-400 hover:text-white" 
-                        : "opacity-50 cursor-not-allowed"
-                    }`}
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Speed Run
-                  </Badge>
+                    <span className="text-lg mr-3">{info.icon}</span>
+                    <div>
+                      <div className="font-semibold text-white">{info.name}</div>
+                      <div className="text-xs text-gray-400">{info.description}</div>
+                    </div>
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Level Editor Grid */}
+            <Card className="lg:col-span-2 bg-black/40 border-purple-800/30">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white flex items-center">
+                      <Edit className="h-5 w-5 mr-2 text-green-400" />
+                      Level Editor ({GRID_WIDTH}x{GRID_HEIGHT})
+                    </CardTitle>
+                    <CardDescription className="text-gray-400">
+                      {editingLevelId ? 'Editing' : 'Creating'}: {levelName || 'Untitled Level'}
+                    </CardDescription>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={fillBottomRow}
+                      className="border-green-400 text-green-400 hover:bg-green-400 hover:text-white"
+                      disabled={!walletInfo}
+                    >
+                      Add Floor
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={clearGrid}
+                      className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      disabled={!walletInfo}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="text-white font-semibold">Difficulty Settings</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
-                        <span className="text-white">Easy</span>
-                        <Badge className="bg-green-600">Recommended</Badge>
-                      </div>
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
-                        <span className="text-white">Medium</span>
-                        <Badge variant="outline" className="border-yellow-400 text-yellow-300">Popular</Badge>
-                      </div>
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
-                        <span className="text-white">Hard</span>
-                        <Badge variant="outline" className="border-red-400 text-red-300">Challenge</Badge>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h4 className="text-white font-semibold">Prize Pool Settings</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Entry Fee</span>
-                        <Input 
-                          type="number" 
-                          placeholder="10" 
-                          className="w-20 h-8 bg-black/20 border-purple-800/30 text-white text-right"
-                          disabled={!walletInfo}
-                        />
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Creator Share</span>
-                        <span className="text-purple-400">10%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Winner Prize</span>
-                        <span className="text-yellow-400">80%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Platform Fee</span>
-                        <span className="text-gray-400">10%</span>
-                      </div>
-                    </div>
-                  </div>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="grid gap-1 p-4 bg-gray-900 rounded-lg overflow-auto select-none" 
+                  style={{
+                    gridTemplateColumns: `repeat(${GRID_WIDTH}, 1fr)`,
+                    maxHeight: '400px'
+                  }}
+                  onMouseLeave={() => setIsDragging(false)}
+                >
+                  {grid.map((row, rowIndex) =>
+                    row.map((cell, colIndex) => (
+                      <button
+                        key={`${rowIndex}-${colIndex}`}
+                        className={`w-4 h-4 border border-gray-600 hover:border-purple-400 transition-colors ${
+                          LEVEL_SYMBOLS[cell as keyof typeof LEVEL_SYMBOLS]?.color || 'bg-gray-800'
+                        } ${!walletInfo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                        onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
+                        onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
+                        onMouseUp={handleMouseUp}
+                        disabled={!walletInfo}
+                        title={`${LEVEL_SYMBOLS[cell as keyof typeof LEVEL_SYMBOLS]?.name || 'Empty'} (${rowIndex}, ${colIndex})`}
+                      />
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Level Details & Actions */}
+            <Card className="bg-black/40 border-purple-800/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Save className="h-5 w-5 mr-2 text-yellow-400" />
+                  Level Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Preset Selector */}
+                <div className="space-y-2">
+                  <Label className="text-white">Load Preset</Label>
+                  <Select value={selectedPreset} onValueChange={setSelectedPreset}>
+                    <SelectTrigger className="bg-black/20 border-purple-800/30 text-white">
+                      <SelectValue placeholder="Choose a preset level" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black border-purple-800/30">
+                      {Object.entries(presets).map(([gameKey, gameData]) =>
+                        gameData.Levels.Levels.map((_, levelIndex) => (
+                          <SelectItem 
+                            key={`${gameKey}-${levelIndex}`} 
+                            value={`${gameKey}-${levelIndex}`}
+                            className="text-white hover:bg-purple-800/20"
+                          >
+                            {gameKey} - Level {levelIndex + 1}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedPreset && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const [gameKey, levelIndex] = selectedPreset.split('-')
+                        loadPreset(gameKey, parseInt(levelIndex))
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      disabled={!walletInfo}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Load Preset
+                    </Button>
+                  )}
                 </div>
 
-                <div className="flex gap-4">
-                  <Button 
-                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                <div className="space-y-2">
+                  <Label htmlFor="levelName" className="text-white">Level Name</Label>
+                  <Input
+                    id="levelName"
+                    value={levelName}
+                    onChange={(e) => setLevelName(e.target.value)}
+                    placeholder="Level 1"
+                    className="bg-black/20 border-purple-800/30 text-white"
                     disabled={!walletInfo}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {walletInfo ? "Create Game" : "Connect Wallet to Create"}
-                  </Button>
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="levelDescription" className="text-white">Description</Label>
+                  <Textarea
+                    id="levelDescription"
+                    value={levelDescription}
+                    onChange={(e) => setLevelDescription(e.target.value)}
+                    placeholder="Describe this level..."
+                    className="bg-black/20 border-purple-800/30 text-white min-h-[80px]"
+                    disabled={!walletInfo}
+                  />
+                </div>
+
+                <div className="space-y-3">
                   <Button
-                    variant="outline"
-                    className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
                     disabled={!walletInfo}
                   >
-                    View Templates
+                    <Eye className="h-4 w-4 mr-2" />
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
                   </Button>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={saveLevel}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      disabled={!walletInfo || !levelName.trim()}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Level
+                    </Button>
+                    <Button
+                      onClick={cancelLevelEdit}
+                      variant="outline"
+                      className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* Footer */}
-      <footer className="bg-black/40 border-t border-purple-800/30 py-12 px-4">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Gamepad2 className="h-6 w-6 text-purple-400" />
-                <span className="text-xl font-bold text-white">ChainJump</span>
+        {/* Levels Management */}
+        {!isEditingLevel && (
+          <Card className="mt-6 bg-black/40 border-purple-800/30">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white flex items-center">
+                    <Play className="h-5 w-5 mr-2 text-green-400" />
+                    Game Levels ({game.levels.length})
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Manage your game levels - add, edit, or remove levels
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={startNewLevel}
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={!walletInfo}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Level
+                </Button>
               </div>
-              <p className="text-gray-400">
-                The future of hyper-casual gaming on blockchain. Create, play, and win together.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Platform</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    How it Works
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Game Creator
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Tournaments
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Leaderboard
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Community</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Discord
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Twitter
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Reddit
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Blog
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Help Center
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-purple-400 transition-colors">
-                    Bug Reports
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-purple-800/30 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 ChainJump. All rights reserved. Built on blockchain technology.</p>
-          </div>
-        </div>
-      </footer>
+            </CardHeader>
+            <CardContent>
+              {game.levels.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🎮</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">No levels yet</h3>
+                  <p className="text-gray-400 mb-6">Start creating your first level to build your game</p>
+                  <Button
+                    onClick={startNewLevel}
+                    className="bg-purple-600 hover:bg-purple-700"
+                    disabled={!walletInfo}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Level
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {game.levels.map((level, index) => (
+                    <Card key={level.id} className="bg-purple-900/20 border-purple-800/30">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-white text-lg">{level.name}</CardTitle>
+                            <CardDescription className="text-gray-400">Level {index + 1}</CardDescription>
+                          </div>
+                          <Badge variant="outline" className="border-purple-400 text-purple-300">
+                            {level.grid.flat().filter(cell => cell === '$').length} coins
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-300 text-sm mb-4 line-clamp-2">
+                          {level.description || "No description"}
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => editLevel(level)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteLevel(level.id)}
+                            className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Preview Section */}
+        {showPreview && isEditingLevel && (
+          <Card className="mt-6 bg-black/40 border-purple-800/30">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <Eye className="h-5 w-5 mr-2 text-blue-400" />
+                Live Preview - {levelName || 'Untitled Level'}
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Test your level in real-time! Use arrow keys to move and spacebar to jump.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div 
+                ref={previewRef}
+                className="w-full flex justify-center bg-gradient-to-b from-slate-800 to-slate-900 rounded-lg"
+                style={{ height: '400px' }}
+              >
+                <canvas className="max-w-full max-h-full rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 } 
